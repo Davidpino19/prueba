@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Organizador de Grupos de Clase</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --primary: #4f6df5;
+    --primary-dark: #3b55d9;
+    --text: #1f2430;
+    --muted: #7a8199;
+    --border: #e4e8f2;
+    --danger: #e5484d;
+    --success: #22a06b;
+  }
+
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: linear-gradient(135deg, var(--primary), #7b5df6);
+    color: #fff;
+    padding: 22px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  header h1 { font-size: 22px; font-weight: 600; }
+  header p { font-size: 13px; opacity: .85; margin-top: 4px; }
+
+  .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .btn {
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: .15s;
+    background: #fff;
+    color: var(--primary);
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+  .btn-outline { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.6); }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 5px 10px; font-size: 12px; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  main {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+    padding: 22px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+  }
+
+  .panel h2 {
+    font-size: 15px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .badge {
+    background: #eef1fd;
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+  }
+
+  .search {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  .search:focus { outline: 2px solid var(--primary); border-color: transparent; }
+
+  .user-list { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+
+  .user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fbfcff;
+    cursor: grab;
+  }
+  .user:active { cursor: grabbing; }
+  .user.assigned { opacity: .55; }
+
+  .avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 13px; font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .user-info { flex: 1; min-width: 0; }
+  .user-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-email { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .group-tag {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: #eef1fd;
+    color: var(--primary);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .groups-toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .groups-toolbar input {
+    flex: 1;
+    min-width: 160px;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+  }
+
+  .groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+  }
+
+  .group {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    background: #fbfcff;
+    transition: .15s;
+  }
+  .group.dragover { border-color: var(--primary); background: #eef1fd; }
+
+  .group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .group-title { font-size: 14px; font-weight: 700; }
+  .group-count { font-size: 11px; color: var(--muted); font-weight: 600; }
+
+  .group-members { display: flex; flex-direction: column; gap: 6px; min-height: 46px; }
+
+  .member {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .member .avatar { width: 26px; height: 26px; font-size: 11px; }
+  .member-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .remove {
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 16px; line-height: 1;
+    padding: 2px 4px; border-radius: 4px;
+  }
+  .remove:hover { color: var(--danger); background: #fdecec; }
+
+  .empty {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    padding: 12px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+  }
+
+  .unassigned-box {
+    margin-top: 16px;
+    border-top: 1px dashed var(--border);
+    padding-top: 14px;
+  }
+
+  .hint { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+
+  dialog {
+    border: none;
+    border-radius: 14px;
+    padding: 22px;
+    width: min(420px, 92vw);
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  }
+  dialog::backdrop { background: rgba(20,24,40,.45); }
+  dialog h3 { font-size: 17px; margin-bottom: 14px; }
+  dialog label { font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px; }
+  dialog input {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 14px; margin-bottom: 14px;
+  }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--text);
+    color: #fff;
+    padding: 11px 20px;
+    border-radius: 30px;
+    font-size: 14px;
+    opacity: 0;
+    transition: .3s;
+    z-index: 99;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Organizador de Grupos de Clase</h1>
+    <p>Arrastra los alumnos a los grupos o usa el botón "Asignar automático"</p>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-outline" id="autoBtn">Asignar automático</button>
+    <button class="btn btn-outline" id="resetBtn">Reiniciar</button>
+    <button class="btn" id="addGroupBtn">+ Nuevo grupo</button>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Alumnos <span class="badge" id="studentCount">20</span></h2>
+    <input type="search" class="search" id="search" placeholder="Buscar alumno...">
+    <div class="user-list" id="userList"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Grupos <span class="badge" id="groupCount">0</span></h2>
+    <div class="groups-toolbar">
+      <button class="btn btn-primary btn-sm" id="addGroupBtn2">+ Crear grupo</button>
+      <span class="hint">Suelta un alumno sobre un grupo para asignarlo</span>
+    </div>
+    <div class="groups" id="groups"></div>
+
+    <div class="unassigned-box">
+      <h2>Sin asignar <span class="badge" id="unassignedCount">0</span></h2>
+      <div class="groups" id="unassigned" style="grid-template-columns:1fr;">
+        <div class="empty" id="unassignedDrop">Todos los alumnos están asignados 🎉</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog id="groupDialog">
+  <h3>Nuevo grupo</h3>
+  <label for="groupName">Nombre del grupo</label>
+  <input type="text" id="groupName" placeholder="Ej: Grupo A" maxlength="30">
+  <div class="dialog-actions">
+    <button class="btn" style="color:var(--muted)" id="cancelBtn">Cancelar</button>
+    <button class="btn btn-primary" id="saveGroupBtn">Crear</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STUDENTS = [
+  { id: 1,  name: "Lucía Fernández",   email: "lucia.fernandez@escuela.es" },
+  { id: 2,  name: "Martín López",      email: "martin.lopez@escuela.es" },
+  { id: 3,  name: "Sofía García",      email: "sofia.garcia@escuela.es" },
+  { id: 4,  name: "Hugo Martínez",     email: "hugo.martinez@escuela.es" },
+  { id: 5,  name: "Valentina Ruiz",    email: "valentina.ruiz@escuela.es" },
+  { id: 6,  name: "Diego Sánchez",     email: "diego.sanchez@escuela.es" },
+  { id: 7,  name: "Camila Torres",     email: "camila.torres@escuela.es" },
+  { id: 8,  name: "Pablo Ramírez",     email: "pablo.ramirez@escuela.es" },
+  { id: 9,  name: "Emma Flores",       email: "emma.flores@escuela.es" },
+  { id: 10, name: "Javier Morales",    email: "javier.morales@escuela.es" },
+  { id: 11, name: "Daniela Ortiz",     email: "daniela.ortiz@escuela.es" },
+  { id: 12, name: "Álvaro Núñez",      email: "alvaro.nunez@escuela.es" },
+  { id: 13, name: "Marta Ibáñez",      email: "marta.ibanez@escuela.es" },
+  { id: 14, name: "Carlos Vargas",     email: "carlos.vargas@escuela.es" },
+  { id: 15, name: "Irene Castillo",    email: "irene.castillo@escuela.es" },
+  { id: 16, name: "Sergio Romero",     email: "sergio.romero@escuela.es" },
+  { id: 17, name: "Alba Navarro",      email: "alba.navarro@escuela.es" },
+  { id: 18, name: "Andrés Delgado",    email: "andres.delgado@escuela.es" },
+  { id: 19, name: "Paula Guerrero",    email: "paula.guerrero@escuela.es" },
+  { id: 20, name: "Raúl Peña",         email: "raul.pena@escuela.es" }
+];
+
+const COLORS = ["#4f6df5","#e5484d","#22a06b","#f08c00","#9b59d0","#0aa5c9","#d6409f","#5f6b7c","#8b7a1f","#2d6e4f"];
+
+const DEFAULT_GROUPS = [
+  { id: "g1", name: "Grupo A" },
+  { id: "g2", name: "Grupo B" },
+  { id: "g3", name: "Grupo C" },
+  { id: "g4", name: "Grupo D" }
+];
+
+const STORAGE_KEY = "classGroupsData";
+
+let state = load();
+
+function load() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (saved && Array.isArray(saved.groups) && saved.assignments) return saved;
+  } catch (e) {}
+  return { groups: [...DEFAULT_GROUPS], assignments: {} };
+}
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function initials(name) {
+  const p = name.split(" ");
+  return (p[0][0] + (p[1] ? p[1][0] : "")).toUpperCase();
+}
+
+function colorFor(id) {
+  return COLORS[id % COLORS.length];
+}
+
+function groupOf(studentId) {
+  return state.assignments[studentId] || null;
+}
+
+function membersOf(groupId) {
+  return STUDENTS.filter(s => state.assignments[s.id] === groupId);
+}
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+function render() {
+  renderUsers();
+  renderGroups();
+  document.getElementById("groupCount").textContent = state.groups.length;
+  const unassigned = STUDENTS.filter(s => !groupOf(s.id)).length;
+  document.getElementById("unassignedCount").textContent = unassigned;
+}
+
+function renderUsers() {
+  const q = document.getElementById("search").value.toLowerCase().trim();
+  const list = document.getElementById("userList");
+  list.innerHTML = "";
+
+  const filtered = STUDENTS.filter(s =>
+    s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q)
+  );
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty">No se encontraron alumnos</div>';
+    return;
+  }
+
+  filtered.forEach(s => {
+    const gid = groupOf(s.id);
+    const g = state.groups.find(g => g.id === gid);
+    const el = document.createElement("div");
+    el.className = "user" + (g ? " assigned" : "");
+    el.draggable = true;
+    el.dataset.id = s.id;
+    el.innerHTML = `
+      <div class="avatar" style="background:${colorFor(s.id)}">${initials(s.name)}</div>
+      <div class="user-info">
+        <div class="user-name">${s.name}</div>
+        <div class="user-email">${s.email}</div>
+      </div>
+      ${g ? `<span class="group-tag">${g.name}</span>` : ""}
+    `;
+    el.addEventListener("dragstart", e => {
+      e.dataTransfer.setData("text/plain", s.id);
+      e.dataTransfer.effectAllowed = "move";
+    });
+    list.appendChild(el);
+  });
+}
+
+function renderGroups() {
+  const wrap = document.getElementById("groups");
+  wrap.innerHTML = "";
+
+  state.groups.forEach(g => {
+    const members = membersOf(g.id);
+    const card = document.createElement("div");
+    card.className = "group";
+    card.dataset.group = g.id;
+    card.innerHTML = `
+      <div class="group-head">
+        <div>
+          <div class="group-title">${escapeHtml(g.name)}</div>
+          <div class="group-count">${members.length} alumno${members.length === 1 ? "" : "s"}</div>
+        </div>
+        <button class="btn btn-danger" data-delete="${g.id}">Eliminar</button>
+      </div>
+      <div class="group-members">
+        ${members.length ? "" : '<div class="empty">Arrastra alumnos aquí</div>'}
+      </div>
+    `;
+
+    const membersBox = card.querySelector(".group-members");
+    members.forEach(s => membersBox.appendChild(memberEl(s)));
+
+    card.addEventListener("dragover", e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      card.classList.add("dragover");
+    });
+    card.addEventListener("dragleave", () => card.classList.remove("dragover"));
+    card.addEventListener("drop", e => {
+      e.preventDefault();
+      card.classList.remove("dragover");
+      const sid = parseInt(e.dataTransfer.getData("text/plain"), 10);
+      if (sid) assign(sid, g.id);
+    });
+
+    card.querySelector("[data-delete]").addEventListener("click", () => deleteGroup(g.id));
+    wrap.appendChild(card);
+  });
+
+  if (!state.groups.length) {
+    wrap.innerHTML = '<div class="empty">No hay grupos. Crea uno con "+ Crear grupo"</div>';
+  }
+}
+
+function memberEl(s) {
+  const el = document.createElement("div");
+  el.className = "member";
+  el.draggable = true;
+  el.innerHTML = `
+    <div class="avatar" style="background:${colorFor(s.id)}">${initials(s.name)}</div>
+    <span class="member-name">${s.name}</span>
+    <button class="remove" title="Quitar del grupo">&times;</button>
+  `;
+  el.addEventListener("dragstart", e => {
+    e.dataTransfer.setData("text/plain", s.id);
+    e.dataTransfer.effectAllowed = "move";
+  });
+  el.querySelector(".remove").addEventListener("click", e => {
+    e.stopPropagation();
+    assign(s.id, null);
+  });
+  return el;
+}
+
+function assign(studentId, groupId) {
+  if (groupId) state.assignments[studentId] = groupId;
+  else delete state.assignments[studentId];
+  save();
+  render();
+  const s = STUDENTS.find(x => x.id === studentId);
+  const g = state.groups.find(x => x.id === groupId);
+  toast(g ? `${s.name} → ${g.name}` : `${s.name} sin asignar`);
+}
+
+function deleteGroup(id) {
+  const g = state.groups.find(x => x.id === id);
+  if (!confirm(`¿Eliminar "${g.name}"? Sus alumnos pasarán a "Sin asignar".`)) return;
+  state.groups = state.groups.filter(x => x.id !== id);
+  Object.keys(state.assignments).forEach(k => {
+    if (state.assignments[k] === id) delete state.assignments[k];
+  });
+  save();
+  render();
+  toast(`Grupo "${g.name}" eliminado`);
+}
+
+function addGroup(name) {
+  const id = "g" + Date.now();
+  state.groups.push({ id, name });
+  save();
+  render();
+  toast(`Grupo "${name}" creado`);
+}
+
+function autoAssign() {
+  if (!state.groups.length) return toast("Crea al menos un grupo primero");
+  state.assignments = {};
+  const shuffled = [...STUDENTS].sort(() => Math.random() - 0.5);
+  shuffled.forEach((s, i) => {
+    state.assignments[s.id] = state.groups[i % state.groups.length].id;
+  });
+  save();
+  render();
+  toast("Alumnos repartidos equitativamente");
+}
+
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+}
+
+const dialog = document.getElementById("groupDialog");
+const nameInput = document.getElementById("groupName");
+
+function openDialog() {
+  nameInput.value = "";
+  dialog.showModal();
+  nameInput.focus();
+}
+
+function saveDialog() {
+  const name = nameInput.value.trim();
+  if (!name) return toast("Escribe un nombre para el grupo");
+  addGroup(name);
+  dialog.close();
+}
+
+document.getElementById("addGroupBtn").addEventListener("click", openDialog);
+document.getElementById("addGroupBtn2").addEventListener("click", openDialog);
+document.getElementById("saveGroupBtn").addEventListener("click", saveDialog);
+document.getElementById("cancelBtn").addEventListener("click", () => dialog.close());
+nameInput.addEventListener("keydown", e => { if (e.key === "Enter") saveDialog(); });
+
+document.getElementById("autoBtn").addEventListener("click", autoAssign);
+document.getElementById("resetBtn").addEventListener("click", () => {
+  if (!confirm("¿Reiniciar? Se borrarán los grupos y asignaciones (volverán los 4 grupos por defecto).")) return;
+  state = { groups: [...DEFAULT_GROUPS], assignments: {} };
+  save();
+  render();
+  toast("Datos reiniciados");
+});
+
+document.getElementById("search").addEventListener("input", renderUsers);
+
+const unassignedBox = document.getElementById("unassigned");
+unassignedBox.addEventListener("dragover", e => e.preventDefault());
+unassignedBox.addEventListener("drop", e => {
+  e.preventDefault();
+  const sid = parseInt(e.dataTransfer.getData("text/plain"), 10);
+  if (sid) assign(sid, null);
+});
+
+render();
+</script>
+</body>
+</html>

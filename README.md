@@ -27,6 +27,8 @@ micli saluda Ana
 micli hola
 micli hola --tipo chiste
 micli despide Ana
+micli adios
+micli adios --tipo frase
 micli ahora -f "%d/%m/%Y"
 
 # Gestor de asignaturas (persiste en ~/.config/micli/asignaturas.json)
@@ -61,6 +63,10 @@ sobrescribe: si ya existe un archivo con el mismo nombre añade ` (1)`, ` (2)`, 
 `micli hola` muestra un saludo con un chiste o una frase motivadora al azar.
 Con `--tipo` puedes pedir `chiste`, `frase` o solo `saludo`. El contenido está
 en `micli/hola.py`, así que puedes añadir tus propios chistes y frases.
+
+`micli adios` hace lo mismo al despedirte: una despedida + chiste o frase al
+azar (`--tipo chiste|frase|despedida`). Las despedidas están en
+`micli/adios.py`.
 
 `micli asignaturas organizar` pregunta a qué asignatura pertenece cada archivo y
 lo mueve a `~/Asignaturas/<Asignatura>/` (o a la carpeta de `--destino`). Las

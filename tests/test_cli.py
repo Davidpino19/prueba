@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from contextlib import contextmanager
 
+from micli import adios
 from micli import cli
 from micli import hola
 from micli.cli import main
@@ -126,6 +127,32 @@ class TestCli(unittest.TestCase):
 
     def test_hola_auto(self):
         code, out = self.run_cli(["hola"])
+        self.assertEqual(code, 0)
+        self.assertTrue("Chiste:" in out or "Frase:" in out)
+
+    def test_adios_chiste(self):
+        code, out = self.run_cli(["adios", "--tipo", "chiste"])
+        self.assertEqual(code, 0)
+        self.assertTrue(any(despedida in out for despedida in adios.DESPEDIDAS))
+        self.assertIn("Chiste:", out)
+        self.assertTrue(any(chiste in out for chiste in hola.CHISTES))
+
+    def test_adios_frase(self):
+        code, out = self.run_cli(["adios", "--tipo", "frase"])
+        self.assertEqual(code, 0)
+        self.assertTrue(any(despedida in out for despedida in adios.DESPEDIDAS))
+        self.assertIn("Frase:", out)
+        self.assertTrue(any(frase in out for frase in hola.FRASES))
+
+    def test_adios_despedida(self):
+        code, out = self.run_cli(["adios", "--tipo", "despedida"])
+        self.assertEqual(code, 0)
+        self.assertIn(out.strip(), adios.DESPEDIDAS)
+        self.assertNotIn("Chiste:", out)
+        self.assertNotIn("Frase:", out)
+
+    def test_adios_auto(self):
+        code, out = self.run_cli(["adios"])
         self.assertEqual(code, 0)
         self.assertTrue("Chiste:" in out or "Frase:" in out)
 

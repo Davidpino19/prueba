@@ -38,11 +38,9 @@ FRASES = [
 ]
 
 
-def mensaje(tipo="auto", rng=random):
-    saludo = rng.choice(SALUDOS)
-    if tipo == "saludo":
-        return saludo, None, None
-
+def extra(tipo="auto", rng=random):
+    if tipo in ("saludo", "despedida"):
+        return None, None
     if tipo == "chiste":
         categoria = "chiste"
     elif tipo == "frase":
@@ -51,5 +49,11 @@ def mensaje(tipo="auto", rng=random):
         categoria = rng.choice(["chiste", "frase"])
 
     if categoria == "chiste":
-        return saludo, "Chiste", rng.choice(CHISTES)
-    return saludo, "Frase", rng.choice(FRASES)
+        return "Chiste", rng.choice(CHISTES)
+    return "Frase", rng.choice(FRASES)
+
+
+def mensaje(tipo="auto", rng=random):
+    saludo = rng.choice(SALUDOS)
+    etiqueta, texto = extra(tipo, rng)
+    return saludo, etiqueta, texto

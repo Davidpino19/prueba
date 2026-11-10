@@ -8,6 +8,7 @@ from colorama import Fore, Style, init as colorama_init
 
 from micli import __version__
 from micli import acciones
+from micli import adios
 from micli import hola
 from micli import organizar
 from micli import store
@@ -50,6 +51,15 @@ def build_parser():
     despide = sub.add_parser("despide", help="Se despide de alguien")
     despide.add_argument("nombre", help="Nombre a despedir")
     despide.set_defaults(func=cmd_despide)
+
+    adios_p = sub.add_parser("adios", help="Despedida con un chiste o una frase")
+    adios_p.add_argument(
+        "-t", "--tipo",
+        choices=["auto", "chiste", "frase", "despedida"],
+        default="auto",
+        help="Qué acompañar a la despedida (por defecto: chiste o frase al azar)",
+    )
+    adios_p.set_defaults(func=cmd_adios)
 
     ahora = sub.add_parser("ahora", help="Muestra la fecha y hora actual")
     ahora.add_argument(
@@ -162,6 +172,15 @@ def cmd_hola(args):
 
 def cmd_despide(args):
     _print(f"¡Hasta luego, {args.nombre}!", Fore.YELLOW, args)
+    return 0
+
+
+def cmd_adios(args):
+    despedida, etiqueta, texto = adios.mensaje(args.tipo)
+    _print(despedida, Fore.YELLOW, args)
+    if texto is not None:
+        color = Fore.CYAN if etiqueta == "Chiste" else Fore.MAGENTA
+        _print(f"{etiqueta}: {texto}", color, args)
     return 0
 
 

@@ -1,0 +1,18 @@
+{
+  "acciones": {
+    "estado": {
+      "descripcion": "Status de git resumido + últimos 5 commits",
+      "comando": "git status -sb && git log --oneline -5"
+    },
+    "sube": {
+      "descripcion": "Commit de todos los cambios y push a la rama actual",
+      "comando": "git add -A && git commit -m {1:commit desde micli} && git push",
+      "ayuda": "micli ejecutar sube [mensaje]",
+      "ejemplos": ["micli ejecutar sube 'fix: typo en README'"]
+    },
+    "limpia": {
+      "descripcion": "Borra __pycache__, .pyc y artefactos de build",
+      "comando": "find . -type d -name __pycache__ -exec rm -rf {} + && rm -rf .pytest_cache build dist *.egg-info"
+    }
+  }
+}

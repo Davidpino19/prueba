@@ -1,10 +1,12 @@
 import argparse
+import subprocess
 import sys
 from datetime import datetime
 
 from colorama import Fore, Style, init as colorama_init
 
 from micli import __version__
+from micli import acciones
 from micli import store
 
 colorama_init(wrap=False, convert=False, strip=False)
@@ -65,6 +67,21 @@ def build_parser():
 
     resumen = sub.add_parser("resumen", help="Resumen de tus asignaturas")
     resumen.set_defaults(func=cmd_resumen)
+
+    acciones_p = sub.add_parser("acciones", help="Lista las acciones disponibles")
+    acciones_p.set_defaults(func=cmd_acciones)
+
+    ejecutar = sub.add_parser("ejecutar", help="Ejecuta una acción de acciones.json")
+    ejecutar.add_argument(
+        "-n", "--dry-run", action="store_true",
+        help="Muestra el comando sin ejecutarlo",
+    )
+    ejecutar.add_argument("accion", help="Nombre de la acción")
+    ejecutar.add_argument(
+        "argumentos", nargs=argparse.REMAINDER,
+        help="Argumentos para la acción",
+    )
+    ejecutar.set_defaults(func=cmd_ejecutar)
 
     return parser
 
@@ -161,6 +178,60 @@ def cmd_resumen(args):
     if media is not None:
         _print(f"Media de notas: {media:.2f}", Fore.MAGENTA, args)
     return 0
+
+
+def cmd_acciones(args):
+    try:
+        definidas = acciones.cargar_acciones()
+    except acciones.AccionError as e:
+        _print(f"Error: {e}", Fore.RED, args)
+        return 1
+    if not definidas:
+        _print("No hay acciones definidas.", Fore.CYAN, args)
+        return 0
+    for nombre, acc in definidas.items():
+        _print(f"{nombre}: {acc.get('descripcion', '')}", Fore.CYAN, args)
+        if acc.get("ayuda"):
+            _print(f"  {acc['ayuda']}", Fore.YELLOW, args)
+        for ejemplo in acc.get("ejemplos", []):
+            _print(f"  {ejemplo}", Fore.MAGENTA, args)
+    return 0
+
+
+def cmd_ejecutar(args):
+    try:
+        definidas = acciones.cargar_acciones()
+    except acciones.AccionError as e:
+        _print(f"Error: {e}", Fore.RED, args)
+        return 1
+    accion = definidas.get(args.accion)
+    if accion is None:
+        _print(f"Error: la acción {args.accion!r} no existe.", Fore.RED, args)
+        return 1
+    try:
+        comando = acciones.construir(accion["comando"], args.argumentos)
+    except acciones.AccionError as e:
+        _print(f"Error: {e}", Fore.RED, args)
+        return 1
+
+    if args.dry_run:
+        _print(comando, Fore.MAGENTA, args)
+        return 0
+
+    _print(f"$ {comando}", Fore.CYAN, args)
+    out.flush()
+    resultado = subprocess.run(
+        comando, shell=True, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+    )
+    if resultado.stdout:
+        print(resultado.stdout, end="", file=out)
+    if resultado.returncode != 0:
+        _print(
+            f"La acción terminó con código {resultado.returncode}.",
+            Fore.RED, args,
+        )
+    return resultado.returncode
 
 
 def main(argv=None):

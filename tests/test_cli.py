@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import tempfile
 import unittest
@@ -21,11 +22,35 @@ def capture_out():
 
 class TestCli(unittest.TestCase):
     def setUp(self):
-        self.ruta = os.path.join(tempfile.mkdtemp(), "asignaturas.json")
+        self.dir = tempfile.mkdtemp()
+        self.ruta = os.path.join(self.dir, "asignaturas.json")
         os.environ["MICLI_DATOS"] = self.ruta
+
+        self.ruta_acciones = os.path.join(self.dir, "acciones.json")
+        with open(self.ruta_acciones, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "acciones": {
+                        "eco": {
+                            "descripcion": "Eco de prueba",
+                            "comando": "echo hola {1}",
+                        },
+                        "nombrado": {
+                            "descripcion": "Acción con nombre",
+                            "comando": "echo {nombre}",
+                            "ayuda": "micli ejecutar nombrado",
+                            "ejemplos": ["micli ejecutar nombrado --nombre=Ana"],
+                        },
+                        "falla": {"descripcion": "Falla", "comando": "exit 3"},
+                    }
+                },
+                f,
+            )
+        os.environ["MICLI_ACCIONES"] = self.ruta_acciones
 
     def tearDown(self):
         del os.environ["MICLI_DATOS"]
+        del os.environ["MICLI_ACCIONES"]
 
     def run_cli(self, argv):
         with capture_out() as buf:
@@ -134,6 +159,51 @@ class TestCli(unittest.TestCase):
         code, out = self.run_cli(["resumen"])
         self.assertEqual(code, 0)
         self.assertIn("No tienes asignaturas", out)
+
+    def test_acciones_lista(self):
+        code, out = self.run_cli(["acciones"])
+        self.assertEqual(code, 0)
+        self.assertIn("eco: Eco de prueba", out)
+        self.assertIn("micli ejecutar nombrado", out)
+        self.assertIn("micli ejecutar nombrado --nombre=Ana", out)
+
+    def test_ejecutar_dry_run(self):
+        code, out = self.run_cli(["ejecutar", "--dry-run", "eco", "mundo"])
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "echo hola mundo\n")
+
+    def test_ejecutar_dry_run_cita(self):
+        code, out = self.run_cli(["ejecutar", "--dry-run", "eco", "hola mundo"])
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "echo hola 'hola mundo'\n")
+
+    def test_ejecutar_nombrado(self):
+        code, out = self.run_cli(
+            ["ejecutar", "--dry-run", "nombrado", "--nombre=Ana"]
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "echo Ana\n")
+
+    def test_ejecutar_ejecuta(self):
+        code, out = self.run_cli(["ejecutar", "eco", "mundo"])
+        self.assertEqual(code, 0)
+        self.assertIn("$ echo hola mundo", out)
+        self.assertIn("hola mundo", out)
+
+    def test_ejecutar_inexistente(self):
+        code, out = self.run_cli(["ejecutar", "nada"])
+        self.assertEqual(code, 1)
+        self.assertIn("no existe", out)
+
+    def test_ejecutar_falta_parametro(self):
+        code, out = self.run_cli(["ejecutar", "eco"])
+        self.assertEqual(code, 1)
+        self.assertIn("Faltan parámetros", out)
+
+    def test_ejecutar_codigo_de_salida(self):
+        code, out = self.run_cli(["ejecutar", "falla"])
+        self.assertEqual(code, 3)
+        self.assertIn("código 3", out)
 
 
 if __name__ == "__main__":

@@ -2,11 +2,13 @@ import argparse
 import subprocess
 import sys
 from datetime import datetime
+from pathlib import Path
 
 from colorama import Fore, Style, init as colorama_init
 
 from micli import __version__
 from micli import acciones
+from micli import organizar
 from micli import store
 
 colorama_init(wrap=False, convert=False, strip=False)
@@ -82,6 +84,23 @@ def build_parser():
         help="Argumentos para la acción",
     )
     ejecutar.set_defaults(func=cmd_ejecutar)
+
+    organizar_p = sub.add_parser(
+        "organizar", help="Organiza archivos en carpetas por tipo"
+    )
+    organizar_p.add_argument(
+        "ruta", nargs="?", default=".",
+        help="Carpeta a organizar (por defecto: el directorio actual)",
+    )
+    organizar_p.add_argument(
+        "-n", "--dry-run", action="store_true",
+        help="Muestra los movimientos sin hacerlos",
+    )
+    organizar_p.add_argument(
+        "--ocultos", action="store_true",
+        help="Incluye también los archivos ocultos",
+    )
+    organizar_p.set_defaults(func=cmd_organizar)
 
     return parser
 
@@ -232,6 +251,31 @@ def cmd_ejecutar(args):
             Fore.RED, args,
         )
     return resultado.returncode
+
+
+def cmd_organizar(args):
+    try:
+        movidos = organizar.organizar(
+            args.ruta, dry_run=args.dry_run, ocultos=args.ocultos
+        )
+    except organizar.OrganizarError as e:
+        _print(f"Error: {e}", Fore.RED, args)
+        return 1
+
+    if not movidos:
+        _print("No hay archivos que organizar.", Fore.CYAN, args)
+        return 0
+
+    raiz = Path(args.ruta)
+    color = Fore.MAGENTA if args.dry_run else Fore.GREEN
+    for origen, destino in movidos:
+        _print(f"{origen.name} -> {destino.relative_to(raiz)}", color, args)
+
+    if args.dry_run:
+        _print(f"Se moverían {len(movidos)} archivo(s).", Fore.YELLOW, args)
+    else:
+        _print(f"Organizados {len(movidos)} archivo(s).", Fore.GREEN, args)
+    return 0
 
 
 def main(argv=None):

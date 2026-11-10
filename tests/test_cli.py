@@ -205,6 +205,53 @@ class TestCli(unittest.TestCase):
         self.assertEqual(code, 3)
         self.assertIn("código 3", out)
 
+    def _carpeta_temporal(self, nombres):
+        carpeta = tempfile.mkdtemp()
+        for nombre in nombres:
+            with open(os.path.join(carpeta, nombre), "w"):
+                pass
+        return carpeta
+
+    def test_organizar(self):
+        carpeta = self._carpeta_temporal(
+            ["foto.JPG", "notas.txt", "script.py", "raro.xyz", "datos.csv", ".oculto"]
+        )
+        os.makedirs(os.path.join(carpeta, "subdir"))
+        code, out = self.run_cli(["organizar", carpeta])
+        self.assertEqual(code, 0)
+        self.assertTrue(os.path.isfile(os.path.join(carpeta, "imagenes", "foto.JPG")))
+        self.assertTrue(os.path.isfile(os.path.join(carpeta, "documentos", "notas.txt")))
+        self.assertTrue(os.path.isfile(os.path.join(carpeta, "codigo", "script.py")))
+        self.assertTrue(os.path.isfile(os.path.join(carpeta, "datos", "datos.csv")))
+        self.assertTrue(os.path.isfile(os.path.join(carpeta, "otros", "raro.xyz")))
+        self.assertTrue(os.path.isfile(os.path.join(carpeta, ".oculto")))
+        self.assertTrue(os.path.isdir(os.path.join(carpeta, "subdir")))
+        self.assertIn("Organizados 5 archivo(s).", out)
+
+    def test_organizar_dry_run(self):
+        carpeta = self._carpeta_temporal(["notas.txt"])
+        code, out = self.run_cli(["organizar", "--dry-run", carpeta])
+        self.assertEqual(code, 0)
+        self.assertIn("notas.txt -> documentos", out)
+        self.assertIn("Se moverían 1 archivo(s).", out)
+        self.assertTrue(os.path.isfile(os.path.join(carpeta, "notas.txt")))
+
+    def test_organizar_colision(self):
+        carpeta = self._carpeta_temporal(["foto.jpg"])
+        os.makedirs(os.path.join(carpeta, "imagenes"))
+        open(os.path.join(carpeta, "imagenes", "foto.jpg"), "w").close()
+        code, _ = self.run_cli(["organizar", carpeta])
+        self.assertEqual(code, 0)
+        self.assertTrue(
+            os.path.isfile(os.path.join(carpeta, "imagenes", "foto (1).jpg"))
+        )
+
+    def test_organizar_ruta_inexistente(self):
+        ruta = os.path.join(tempfile.mkdtemp(), "no-existe")
+        code, out = self.run_cli(["organizar", ruta])
+        self.assertEqual(code, 1)
+        self.assertIn("no es un directorio", out)
+
 
 if __name__ == "__main__":
     unittest.main()

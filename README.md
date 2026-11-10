@@ -39,7 +39,16 @@ micli acciones
 micli ejecutar estado
 micli ejecutar sube "fix: typo en README"
 micli ejecutar --dry-run sube "fix: typo"
+
+# Organizar archivos de una carpeta por tipo
+micli organizar ~/Descargas
+micli organizar --dry-run ~/Descargas
 ```
+
+`micli organizar` mueve los archivos a subcarpetas según su extensión
+(`imagenes`, `documentos`, `videos`, `audio`, `codigo`, `comprimidos`,
+`datos`, `otros`). Ignora archivos ocultos salvo que uses `--ocultos`, y no
+sobrescribe: si ya existe un archivo con el mismo nombre añade ` (1)`, ` (2)`, etc.
 
 `--no-color` desactiva los colores en cualquier comando.
 

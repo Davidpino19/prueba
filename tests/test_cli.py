@@ -57,6 +57,17 @@ class TestCli(unittest.TestCase):
             code = main(["--no-color"] + argv)
         return code, buf.getvalue()
 
+    def run_cli_entrada(self, argv, respuestas):
+        it = iter(respuestas)
+        antiguo = cli.entrada
+        cli.entrada = lambda _prompt="": next(it)
+        try:
+            with capture_out() as buf:
+                code = main(["--no-color"] + argv)
+        finally:
+            cli.entrada = antiguo
+        return code, buf.getvalue()
+
     def test_saludo_simple(self):
         code, out = self.run_cli(["saluda", "Ana"])
         self.assertEqual(code, 0)
@@ -251,6 +262,108 @@ class TestCli(unittest.TestCase):
         code, out = self.run_cli(["organizar", ruta])
         self.assertEqual(code, 1)
         self.assertIn("no es un directorio", out)
+
+    def test_asig_organizar_interactivo(self):
+        carpeta = self._carpeta_temporal(["apuntes.txt", "bd.pdf"])
+        destino = tempfile.mkdtemp()
+        code, out = self.run_cli_entrada(
+            ["asignaturas", "organizar", carpeta, "--destino", destino],
+            ["1", "2"],
+        )
+        self.assertEqual(code, 0)
+        self.assertIn("1) Programación", out)
+        self.assertIn("5) Sistemas informáticos", out)
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(destino, "Programación", "apuntes.txt")
+            )
+        )
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(destino, "Base de datos", "bd.pdf")
+            )
+        )
+        self.assertIn("Organizados 2 archivo(s)", out)
+
+    def test_asig_organizar_omitir(self):
+        carpeta = self._carpeta_temporal(["suelto.txt"])
+        code, out = self.run_cli_entrada(
+            ["asignaturas", "organizar", carpeta], ["0"]
+        )
+        self.assertEqual(code, 0)
+        self.assertIn("Omitido: suelto.txt", out)
+        self.assertTrue(os.path.isfile(os.path.join(carpeta, "suelto.txt")))
+
+    def test_asig_organizar_invalida_luego_valida(self):
+        carpeta = self._carpeta_temporal(["redes.txt"])
+        destino = tempfile.mkdtemp()
+        code, out = self.run_cli_entrada(
+            ["asignaturas", "organizar", carpeta, "--destino", destino],
+            ["99", "5"],
+        )
+        self.assertEqual(code, 0)
+        self.assertIn("Opción no válida", out)
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(destino, "Sistemas informáticos", "redes.txt")
+            )
+        )
+
+    def test_asig_organizar_salir(self):
+        carpeta = self._carpeta_temporal(["a.txt", "b.txt"])
+        destino = tempfile.mkdtemp()
+        code, out = self.run_cli_entrada(
+            ["asignaturas", "organizar", carpeta, "--destino", destino],
+            ["q"],
+        )
+        self.assertEqual(code, 0)
+        self.assertIn("Saliendo sin organizar el resto", out)
+        self.assertTrue(os.path.isfile(os.path.join(carpeta, "a.txt")))
+        self.assertTrue(os.path.isfile(os.path.join(carpeta, "b.txt")))
+
+    def test_asig_organizar_dry_run(self):
+        carpeta = self._carpeta_temporal(["notas.txt"])
+        destino = tempfile.mkdtemp()
+        code, out = self.run_cli_entrada(
+            ["asignaturas", "organizar", carpeta, "--destino", destino,
+             "--dry-run"],
+            ["1"],
+        )
+        self.assertEqual(code, 0)
+        self.assertIn("(dry-run)", out)
+        self.assertIn("Se moverían 1 archivo(s)", out)
+        self.assertTrue(os.path.isfile(os.path.join(carpeta, "notas.txt")))
+
+    def test_asig_organizar_colision(self):
+        carpeta = self._carpeta_temporal(["foto.jpg"])
+        destino = tempfile.mkdtemp()
+        os.makedirs(os.path.join(destino, "Programación"))
+        open(os.path.join(destino, "Programación", "foto.jpg"), "w").close()
+        code, _ = self.run_cli_entrada(
+            ["asignaturas", "organizar", carpeta, "--destino", destino],
+            ["1"],
+        )
+        self.assertEqual(code, 0)
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(destino, "Programación", "foto (1).jpg")
+            )
+        )
+
+    def test_asig_organizar_ignora_ocultos(self):
+        carpeta = self._carpeta_temporal([".oculto", "visible.txt"])
+        destino = tempfile.mkdtemp()
+        code, _ = self.run_cli_entrada(
+            ["asignaturas", "organizar", carpeta, "--destino", destino],
+            ["1"],
+        )
+        self.assertEqual(code, 0)
+        self.assertTrue(os.path.isfile(os.path.join(carpeta, ".oculto")))
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(destino, "Programación", "visible.txt")
+            )
+        )
 
 
 if __name__ == "__main__":

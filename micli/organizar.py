@@ -1,6 +1,14 @@
 import shutil
 from pathlib import Path
 
+ASIGNATURAS_POR_DEFECTO = [
+    "Programación",
+    "Base de datos",
+    "Lenguajes",
+    "Entornos de desarrollo",
+    "Sistemas informáticos",
+]
+
 CATEGORIAS = {
     "imagenes": {
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", ".webp", ".ico",
@@ -59,18 +67,38 @@ def _destino_libre(carpeta, nombre):
         i += 1
 
 
-def organizar(ruta=".", dry_run=False, ocultos=False):
+def nombre_carpeta(nombre):
+    limpio = nombre.replace("/", "-").replace("\\", "-").strip()
+    return limpio or "Sin asignatura"
+
+
+def archivos_sueltos(ruta=".", ocultos=False):
     raiz = Path(ruta)
     if not raiz.is_dir():
         raise OrganizarError(f"{raiz} no es un directorio.")
+    return [
+        archivo
+        for archivo in sorted(raiz.iterdir(), key=lambda p: p.name.lower())
+        if archivo.is_file() and not archivo.is_symlink()
+        and (ocultos or not archivo.name.startswith("."))
+    ]
 
+
+def mover_a(origen, carpeta):
+    carpeta = Path(carpeta)
+    destino = _destino_libre(carpeta, origen.name)
+    try:
+        carpeta.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(origen), str(destino))
+    except OSError as e:
+        raise OrganizarError(f"No se pudo mover {origen.name}: {e}")
+    return destino
+
+
+def organizar(ruta=".", dry_run=False, ocultos=False):
+    raiz = Path(ruta)
     movidos = []
-    for origen in sorted(raiz.iterdir(), key=lambda p: p.name.lower()):
-        if not origen.is_file() or origen.is_symlink():
-            continue
-        if not ocultos and origen.name.startswith("."):
-            continue
-
+    for origen in archivos_sueltos(ruta, ocultos):
         destino = _destino_libre(raiz / categoria(origen.name), origen.name)
         movidos.append((origen, destino))
 

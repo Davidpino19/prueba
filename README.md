@@ -34,6 +34,10 @@ micli asignaturas list
 micli asignaturas remove "Matemáticas"
 micli resumen
 
+# Organizar archivos en carpetas de asignaturas (interactivo)
+micli asignaturas organizar ~/Descargas
+micli asignaturas organizar ~/Descargas --destino ~/Asignaturas --dry-run
+
 # Acciones automatizadas (definidas en acciones.json)
 micli acciones
 micli ejecutar estado
@@ -51,6 +55,13 @@ micli organizar --dry-run ~/Descargas
 sobrescribe: si ya existe un archivo con el mismo nombre añade ` (1)`, ` (2)`, etc.
 
 `--no-color` desactiva los colores en cualquier comando.
+
+`micli asignaturas organizar` pregunta a qué asignatura pertenece cada archivo y
+lo mueve a `~/Asignaturas/<Asignatura>/` (o a la carpeta de `--destino`). Las
+asignaturas por defecto son Programación, Base de datos, Lenguajes, Entornos de
+desarrollo y Sistemas informáticos, además de las que tengas registradas. Usa
+`--dry-run` para verlo sin mover nada; los archivos ocultos se ignoran salvo
+que uses `--ocultos`.
 
 ## Acciones propias
 

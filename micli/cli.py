@@ -14,6 +14,7 @@ from micli import store
 colorama_init(wrap=False, convert=False, strip=False)
 
 out = sys.stdout
+entrada = input
 
 COLOR_ESTADO = {
     "pendiente": Fore.YELLOW,
@@ -66,6 +67,27 @@ def build_parser():
     a_remove = sub_asig.add_parser("remove", help="Elimina una asignatura")
     a_remove.add_argument("nombre", help="Nombre de la asignatura")
     a_remove.set_defaults(func=cmd_asig_remove)
+
+    a_org = sub_asig.add_parser(
+        "organizar", help="Mueve archivos a carpetas de asignaturas (interactivo)"
+    )
+    a_org.add_argument(
+        "ruta", nargs="?", default=".",
+        help="Carpeta con los archivos (por defecto: el directorio actual)",
+    )
+    a_org.add_argument(
+        "-d", "--destino", default=str(Path.home() / "Asignaturas"),
+        help="Carpeta base de las asignaturas (por defecto: ~/Asignaturas)",
+    )
+    a_org.add_argument(
+        "-n", "--dry-run", action="store_true",
+        help="Muestra los movimientos sin hacerlos",
+    )
+    a_org.add_argument(
+        "--ocultos", action="store_true",
+        help="Incluye también los archivos ocultos",
+    )
+    a_org.set_defaults(func=cmd_asig_organizar)
 
     resumen = sub.add_parser("resumen", help="Resumen de tus asignaturas")
     resumen.set_defaults(func=cmd_resumen)
@@ -174,6 +196,84 @@ def cmd_asig_remove(args):
         _print(f"Error: la asignatura {args.nombre!r} no existe.", Fore.RED, args)
         return 1
     _print(f"Eliminada la asignatura {args.nombre}.", Fore.YELLOW, args)
+    return 0
+
+
+def cmd_asig_organizar(args):
+    try:
+        archivos = organizar.archivos_sueltos(args.ruta, ocultos=args.ocultos)
+    except organizar.OrganizarError as e:
+        _print(f"Error: {e}", Fore.RED, args)
+        return 1
+    if not archivos:
+        _print("No hay archivos que organizar.", Fore.CYAN, args)
+        return 0
+
+    opciones = []
+    for nombre in organizar.ASIGNATURAS_POR_DEFECTO + list(store.cargar()):
+        if nombre not in opciones:
+            opciones.append(nombre)
+
+    base = Path(args.destino).expanduser()
+    _print(f"Destino: {base}", Fore.CYAN, args)
+    _print("Asignaturas:", Fore.CYAN, args)
+    for i, nombre in enumerate(opciones, 1):
+        _print(f"  {i}) {nombre}", Fore.CYAN, args)
+    _print("  0) Omitir   q) Salir", Fore.YELLOW, args)
+
+    movidos = 0
+    omitidos = 0
+    for i, origen in enumerate(archivos, 1):
+        _print(f"\nArchivo {i}/{len(archivos)}: {origen.name}", Fore.MAGENTA, args)
+        salir = False
+        while True:
+            try:
+                respuesta = entrada(
+                    f"Asignatura [0-{len(opciones)}, q]: "
+                ).strip().lower()
+            except EOFError:
+                respuesta = "q"
+
+            if respuesta == "q":
+                salir = True
+                break
+            if respuesta in ("", "0"):
+                omitidos += 1
+                _print(f"Omitido: {origen.name}", Fore.YELLOW, args)
+                break
+            if respuesta.isdigit() and 1 <= int(respuesta) <= len(opciones):
+                asignatura = opciones[int(respuesta) - 1]
+                carpeta = base / organizar.nombre_carpeta(asignatura)
+                if args.dry_run:
+                    _print(
+                        f"{origen.name} -> {carpeta / origen.name} (dry-run)",
+                        Fore.MAGENTA, args,
+                    )
+                else:
+                    try:
+                        destino = organizar.mover_a(origen, carpeta)
+                    except organizar.OrganizarError as e:
+                        _print(f"Error: {e}", Fore.RED, args)
+                        return 1
+                    _print(f"{origen.name} -> {destino}", Fore.GREEN, args)
+                movidos += 1
+                break
+            _print("Opción no válida.", Fore.RED, args)
+
+        if salir:
+            _print("Saliendo sin organizar el resto.", Fore.YELLOW, args)
+            break
+
+    if args.dry_run:
+        _print(
+            f"\nSe moverían {movidos} archivo(s) y se omitirían {omitidos}.",
+            Fore.YELLOW, args,
+        )
+    else:
+        _print(
+            f"\nOrganizados {movidos} archivo(s) y omitidos {omitidos}.",
+            Fore.GREEN, args,
+        )
     return 0
 
 

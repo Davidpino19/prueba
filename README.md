@@ -24,6 +24,8 @@ python3 -m micli --help
 ```bash
 # Saludo y utilidades rápidas
 micli saluda Ana
+micli hola
+micli hola --tipo chiste
 micli despide Ana
 micli ahora -f "%d/%m/%Y"
 
@@ -55,6 +57,10 @@ micli organizar --dry-run ~/Descargas
 sobrescribe: si ya existe un archivo con el mismo nombre añade ` (1)`, ` (2)`, etc.
 
 `--no-color` desactiva los colores en cualquier comando.
+
+`micli hola` muestra un saludo con un chiste o una frase motivadora al azar.
+Con `--tipo` puedes pedir `chiste`, `frase` o solo `saludo`. El contenido está
+en `micli/hola.py`, así que puedes añadir tus propios chistes y frases.
 
 `micli asignaturas organizar` pregunta a qué asignatura pertenece cada archivo y
 lo mueve a `~/Asignaturas/<Asignatura>/` (o a la carpeta de `--destino`). Las

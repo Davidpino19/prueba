@@ -8,6 +8,7 @@ from colorama import Fore, Style, init as colorama_init
 
 from micli import __version__
 from micli import acciones
+from micli import hola
 from micli import organizar
 from micli import store
 
@@ -36,6 +37,15 @@ def build_parser():
     saluda.add_argument("nombre", help="Nombre a saludar")
     saluda.add_argument("-v", "--verbose", action="store_true", help="Modo verbose")
     saluda.set_defaults(func=cmd_saluda)
+
+    hola_p = sub.add_parser("hola", help="Saludo con un chiste o una frase motivadora")
+    hola_p.add_argument(
+        "-t", "--tipo",
+        choices=["auto", "chiste", "frase", "saludo"],
+        default="auto",
+        help="Qué acompañar al saludo (por defecto: chiste o frase al azar)",
+    )
+    hola_p.set_defaults(func=cmd_hola)
 
     despide = sub.add_parser("despide", help="Se despide de alguien")
     despide.add_argument("nombre", help="Nombre a despedir")
@@ -138,6 +148,15 @@ def cmd_saluda(args):
     _print(f"Hola, {args.nombre}!", Fore.GREEN, args)
     if args.verbose:
         _print(f"(verbose: comando={args.comando}, nombre={args.nombre!r})", Fore.CYAN, args)
+    return 0
+
+
+def cmd_hola(args):
+    saludo, etiqueta, texto = hola.mensaje(args.tipo)
+    _print(saludo, Fore.GREEN, args)
+    if texto is not None:
+        color = Fore.CYAN if etiqueta == "Chiste" else Fore.MAGENTA
+        _print(f"{etiqueta}: {texto}", color, args)
     return 0
 
 

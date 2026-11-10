@@ -6,6 +6,7 @@ import unittest
 from contextlib import contextmanager
 
 from micli import cli
+from micli import hola
 from micli.cli import main
 
 
@@ -101,6 +102,32 @@ class TestCli(unittest.TestCase):
         code, out = self.run_cli(["despide", "Luis"])
         self.assertEqual(code, 0)
         self.assertEqual(out, "¡Hasta luego, Luis!\n")
+
+    def test_hola_chiste(self):
+        code, out = self.run_cli(["hola", "--tipo", "chiste"])
+        self.assertEqual(code, 0)
+        self.assertTrue(any(saludo in out for saludo in hola.SALUDOS))
+        self.assertIn("Chiste:", out)
+        self.assertTrue(any(chiste in out for chiste in hola.CHISTES))
+
+    def test_hola_frase(self):
+        code, out = self.run_cli(["hola", "--tipo", "frase"])
+        self.assertEqual(code, 0)
+        self.assertTrue(any(saludo in out for saludo in hola.SALUDOS))
+        self.assertIn("Frase:", out)
+        self.assertTrue(any(frase in out for frase in hola.FRASES))
+
+    def test_hola_saludo(self):
+        code, out = self.run_cli(["hola", "--tipo", "saludo"])
+        self.assertEqual(code, 0)
+        self.assertIn(out.strip(), hola.SALUDOS)
+        self.assertNotIn("Chiste:", out)
+        self.assertNotIn("Frase:", out)
+
+    def test_hola_auto(self):
+        code, out = self.run_cli(["hola"])
+        self.assertEqual(code, 0)
+        self.assertTrue("Chiste:" in out or "Frase:" in out)
 
     def test_colores_activos(self):
         with capture_out() as buf:

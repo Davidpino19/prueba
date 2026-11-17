@@ -1,6 +1,9 @@
 import os
 
-import httpx
+try:
+    import httpx
+except ImportError:
+    httpx = None
 
 URL_API = "https://api.openai.com/v1/chat/completions"
 MODELO_POR_DEFECTO = "gpt-4o-mini"
@@ -25,6 +28,10 @@ def chat(mensajes, modelo=None):
 
     `mensajes` es una lista de dicts {"role": ..., "content": ...}.
     """
+    if httpx is None:
+        raise IaError(
+            "Falta la librería httpx. Instálala con: pip install httpx"
+        )
     clave = _api_key()
     respuesta = httpx.post(
         URL_API,

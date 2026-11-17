@@ -58,6 +58,25 @@ CLI mínima de aprendizaje:
 4. **Uso real**: el comando se ha usado para ordenar los archivos del PC,
    comprobando que funciona con una gran cantidad de archivos reales.
 
+## Sesión 4 — IA con OpenAI (`886df37` + esta sesión)
+
+1. **`micli/ia.py`** — cliente de la API de chat de OpenAI con `httpx`
+   (petición POST a `/v1/chat/completions`, sin la librería `openai`).
+   - `chat(mensajes, modelo)` → texto de la respuesta; `chatear(texto)` para
+     preguntas sueltas; `consejo_estudio(datos)` construye un prompt con las
+     asignaturas/notas del store.
+   - Modelo por defecto `gpt-4o-mini`, configurable con `-m` o `MICLI_IA_MODELO`.
+   - `httpx` se importa de forma opcional (`try/except ImportError`): sin él,
+     `micli` sigue funcionando y los comandos `ia` dan un error claro. Clave:
+     variable de entorno `OPENAI_API_KEY`.
+2. **Nuevos comandos**: `micli ia <pregunta>` y `micli asignaturas ia-consejo`.
+   Errores de API (401, etc.) → mensaje rojo + exit 1.
+3. **Tests**: 5 tests nuevos con mocks de `ia.httpx` (sin tocar la red):
+   chat OK, error de API, falta API key, consejo con datos y consejo sin
+   asignaturas. Total: 49 tests.
+4. **Nota del entorno**: en esta máquina no hay `pip` ni `ensurepip`; los
+   tests de `ia` mockean `httpx` a nivel de módulo para no depender de él.
+
 ## Cómo probarla
 
 ```bash

@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from micli import adios
 from micli import cli
 from micli import hola
+from micli import ia
 from micli.cli import main
 
 
@@ -219,6 +220,101 @@ class TestCli(unittest.TestCase):
         self.assertIn("Suspendidas: 1", out)
         self.assertIn("Pendientes:  1", out)
         self.assertIn("Media de notas: 5.00", out)
+
+    def test_ia_sin_api_key(self):
+        antiguo_httpx, antiguo_key = ia.httpx, os.environ.get("OPENAI_API_KEY")
+        ia.httpx = type("m", (), {"post": None})
+        os.environ.pop("OPENAI_API_KEY", None)
+        try:
+            code, out = self.run_cli(["ia", "¿Qué es Python?"])
+        finally:
+            ia.httpx = antiguo_httpx
+            if antiguo_key is not None:
+                os.environ["OPENAI_API_KEY"] = antiguo_key
+        self.assertEqual(code, 1)
+        self.assertIn("OPENAI_API_KEY", out)
+
+    def test_ia_mock(self):
+        antiguo_httpx, antiguo_key = ia.httpx, os.environ.get("OPENAI_API_KEY")
+
+        class Respuesta:
+            status_code = 200
+
+            def json(self):
+                return {"choices": [{"message": {"content": " Python es un lenguaje."}}]}
+
+        ia.httpx = type("m", (), {"post": lambda *a, **k: Respuesta()})
+        os.environ["OPENAI_API_KEY"] = "clave-test"
+        try:
+            code, out = self.run_cli(["ia", "¿Qué es Python?"])
+        finally:
+            ia.httpx = antiguo_httpx
+            if antiguo_key is None:
+                del os.environ["OPENAI_API_KEY"]
+            else:
+                os.environ["OPENAI_API_KEY"] = antiguo_key
+        self.assertEqual(code, 0)
+        self.assertIn("Python es un lenguaje.", out)
+
+    def test_ia_error_api(self):
+        antiguo_httpx, antiguo_key = ia.httpx, os.environ.get("OPENAI_API_KEY")
+
+        class Respuesta:
+            status_code = 401
+            text = "invalid api key"
+
+            def json(self):
+                return {}
+
+        ia.httpx = type("m", (), {"post": lambda *a, **k: Respuesta()})
+        os.environ["OPENAI_API_KEY"] = "clave-mala"
+        try:
+            code, out = self.run_cli(["ia", "hola"])
+        finally:
+            ia.httpx = antiguo_httpx
+            if antiguo_key is None:
+                del os.environ["OPENAI_API_KEY"]
+            else:
+                os.environ["OPENAI_API_KEY"] = antiguo_key
+        self.assertEqual(code, 1)
+        self.assertIn("401", out)
+
+    def test_asig_ia_consejo_vacio(self):
+        code, out = self.run_cli(["asignaturas", "ia-consejo"])
+        self.assertEqual(code, 0)
+        self.assertIn("No tienes asignaturas", out)
+
+    def test_asig_ia_consejo_mock(self):
+        self.run_cli(["asignaturas", "add", "Matemáticas", "-c", "6"])
+        self.run_cli(["asignaturas", "nota", "Matemáticas", "4"])
+        antiguo_httpx, antiguo_key = ia.httpx, os.environ.get("OPENAI_API_KEY")
+
+        clase = self
+
+        class Respuesta:
+            status_code = 200
+
+            def json(self):
+                return {"choices": [{"message": {"content": "Repasa mates."}}]}
+
+        def post(url, headers=None, json=None, timeout=None):
+            contenido = json["messages"][1]["content"]
+            clase.assertIn("Matemáticas", contenido)
+            clase.assertIn("nota 4", contenido)
+            return Respuesta()
+
+        ia.httpx = type("m", (), {"post": post})
+        os.environ["OPENAI_API_KEY"] = "clave-test"
+        try:
+            code, out = self.run_cli(["asignaturas", "ia-consejo"])
+        finally:
+            ia.httpx = antiguo_httpx
+            if antiguo_key is None:
+                del os.environ["OPENAI_API_KEY"]
+            else:
+                os.environ["OPENAI_API_KEY"] = antiguo_key
+        self.assertEqual(code, 0)
+        self.assertIn("Repasa mates.", out)
 
     def test_resumen_vacio(self):
         code, out = self.run_cli(["resumen"])

@@ -51,7 +51,25 @@ micli ejecutar --dry-run sube "fix: typo"
 # Organizar archivos de una carpeta por tipo
 micli organizar ~/Descargas
 micli organizar --dry-run ~/Descargas
+
+# IA (OpenAI) — necesita OPENAI_API_KEY
+export OPENAI_API_KEY=sk-...
+micli ia "Explícame qué es una base de datos"
+micli ia -m gpt-4o "Resume el teorema de Pitágoras"
+micli asignaturas ia-consejo
 ```
+
+## IA
+
+`micli ia <pregunta>` envía tu pregunta a la API de chat de OpenAI (por defecto
+`gpt-4o-mini`; cámbiala con `-m` o con la variable `MICLI_IA_MODELO`).
+
+`micli asignaturas ia-consejo` pasa tus asignaturas y notas a la IA y devuelve
+un consejo de estudio personalizado en 4-6 frases.
+
+Necesitas una API key ([créala aquí](https://platform.openai.com/api-keys)) y
+exportarla como `OPENAI_API_KEY`. Si falta la key o la librería `httpx`, el
+comando avisa con un mensaje de error y sale con código 1.
 
 `micli organizar` mueve los archivos a subcarpetas según su extensión
 (`imagenes`, `documentos`, `videos`, `audio`, `codigo`, `comprimidos`,

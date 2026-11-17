@@ -10,6 +10,7 @@ from micli import __version__
 from micli import acciones
 from micli import adios
 from micli import hola
+from micli import ia
 from micli import organizar
 from micli import store
 
@@ -109,6 +110,12 @@ def build_parser():
     )
     a_org.set_defaults(func=cmd_asig_organizar)
 
+    a_ia = sub_asig.add_parser(
+        "ia-consejo", help="Consejo de estudio con IA (OpenAI)"
+    )
+    a_ia.add_argument("-m", "--modelo", help="Modelo de OpenAI (por defecto: gpt-4o-mini)")
+    a_ia.set_defaults(func=cmd_asig_ia_consejo)
+
     resumen = sub.add_parser("resumen", help="Resumen de tus asignaturas")
     resumen.set_defaults(func=cmd_resumen)
 
@@ -143,6 +150,11 @@ def build_parser():
         help="Incluye también los archivos ocultos",
     )
     organizar_p.set_defaults(func=cmd_organizar)
+
+    ia_p = sub.add_parser("ia", help="Pregunta algo a la IA (OpenAI)")
+    ia_p.add_argument("pregunta", help="Texto o pregunta para la IA")
+    ia_p.add_argument("-m", "--modelo", help="Modelo de OpenAI (por defecto: gpt-4o-mini)")
+    ia_p.set_defaults(func=cmd_ia)
 
     return parser
 
@@ -389,6 +401,34 @@ def cmd_ejecutar(args):
             Fore.RED, args,
         )
     return resultado.returncode
+
+
+def cmd_ia(args):
+    _print("Pensando...", Fore.CYAN, args)
+    out.flush()
+    try:
+        respuesta = ia.chatear(args.pregunta, modelo=args.modelo)
+    except ia.IaError as e:
+        _print(f"Error: {e}", Fore.RED, args)
+        return 1
+    _print(respuesta, Fore.GREEN, args)
+    return 0
+
+
+def cmd_asig_ia_consejo(args):
+    datos = store.cargar()
+    if not datos:
+        _print("No tienes asignaturas todavía.", Fore.CYAN, args)
+        return 0
+    _print("Pensando...", Fore.CYAN, args)
+    out.flush()
+    try:
+        consejo = ia.consejo_estudio(datos, modelo=args.modelo)
+    except ia.IaError as e:
+        _print(f"Error: {e}", Fore.RED, args)
+        return 1
+    _print(consejo, Fore.MAGENTA, args)
+    return 0
 
 
 def cmd_organizar(args):

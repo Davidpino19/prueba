@@ -12,7 +12,7 @@ GEMINI_URL = (
 )
 MODELOS = {
     "openai": "gpt-4o-mini",
-    "gemini": "gemini-2.0-flash",
+    "gemini": "gemini-flash-lite-latest",
 }
 CLAVES = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY"}
 
@@ -109,9 +109,12 @@ def _chat_gemini(clave, modelo, mensajes):
     cuerpo = {"contents": contenido}
     if system:
         cuerpo["systemInstruction"] = {"parts": [{"text": system}]}
+    cabeceras = {"x-goog-api-key": clave}
+    params = {} if clave.startswith("AQ.") else {"key": clave}
     respuesta = httpx.post(
         GEMINI_URL.format(modelo=modelo),
-        params={"key": clave},
+        params=params or None,
+        headers=cabeceras,
         json=cuerpo,
         timeout=60,
     )

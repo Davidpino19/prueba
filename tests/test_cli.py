@@ -315,7 +315,7 @@ class TestCli(unittest.TestCase):
                 os.environ["MICLI_IA_PROVEEDOR"] = antiguo_prov
         self.assertEqual(code, 0)
         self.assertIn("generativelanguage.googleapis.com", visto["url"])
-        self.assertIn("gemini-2.0-flash", visto["url"])
+        self.assertIn("gemini-flash-lite-latest", visto["url"])
         self.assertEqual(visto["key"], "clave-gemini")
         self.assertIn("Hola desde Gemini.", out)
 

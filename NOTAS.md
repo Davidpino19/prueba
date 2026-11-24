@@ -113,6 +113,17 @@ CLI mínima de aprendizaje:
 4. **Tests**: 70 (12 nuevos en `tests/test_examen.py`, sin red: `ia.chat`
    mockeado). Prueba real hecha: examen de fotosíntesis corregido y guardado.
 
+## Sesión 7 — TUI con rich
+
+1. **`micli/ui.py`**: capa de presentación opcional. `habilitar()` crea la
+   `Console` de rich sobre `clic.out`; `tabla_asignaturas`, `resumen_stats`,
+   `tabla_examenes` y `panel` devuelven True si han pintado (el comando usa
+   fallback de texto plano con `or`).
+2. **Comandos**: `micli ui on|off` (persistente en
+   `~/.config/micli/ui.json`, configurable con `MICLI_UI_CONF`).
+3. `rich` es **opcional** (`pip install 'micli[ui]'`): sin él, todo sigue
+   igual. `--no-color` desactiva la UI.
+
 ## Cómo probarla
 
 ```bash

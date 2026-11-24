@@ -5,6 +5,7 @@ import click
 from micli import clic
 from micli import examen as examen_mod
 from micli import ia as ia_mod
+from micli import ui
 
 
 class MicliGroup(click.Group):
@@ -25,6 +26,8 @@ def app(ctx, no_color):
         clic.activar_sin_color()
     else:
         clic.restaurar_color()
+        ui.habilitar()
+        ui._reset()
 
 
 @app.command()
@@ -123,6 +126,8 @@ def asig_list():
     if not datos:
         clic.imprimir("No tienes asignaturas todavía.", clic.AZUL)
         return
+    if ui.tabla_asignaturas(datos, store.estado):
+        return
     for nombre, info in sorted(datos.items()):
         est = store.estado(info["nota"])
         nota_txt = "—" if info["nota"] is None else f"{info['nota']:g}"
@@ -203,12 +208,15 @@ def resumen():
     notas = [info["nota"] for info in datos.values() if info["nota"] is not None]
     media = sum(notas) / len(notas) if notas else None
 
-    clic.imprimir(f"Asignaturas: {len(datos)}", clic.AZUL)
-    clic.imprimir(f"  Aprobadas:   {aprobadas}", clic.VERDE)
-    clic.imprimir(f"  Suspendidas: {suspendidas}", clic.ROJO)
-    clic.imprimir(f"  Pendientes:  {pendientes}", clic.AMARILLO)
-    if media is not None:
-        clic.imprimir(f"Media de notas: {media:.2f}", clic.MAGENTA)
+    if not ui.resumen_stats(
+        len(datos), aprobadas, suspendidas, pendientes, media
+    ):
+        clic.imprimir(f"Asignaturas: {len(datos)}", clic.AZUL)
+        clic.imprimir(f"  Aprobadas:   {aprobadas}", clic.VERDE)
+        clic.imprimir(f"  Suspendidas: {suspendidas}", clic.ROJO)
+        clic.imprimir(f"  Pendientes:  {pendientes}", clic.AMARILLO)
+        if media is not None:
+            clic.imprimir(f"Media de notas: {media:.2f}", clic.MAGENTA)
 
 
 @app.command()
@@ -426,9 +434,15 @@ def examen_crear(fuente, tema, texto, dificultad, num, modelo, proveedor):
         raise SystemExit(1)
 
     nombre = tema or (Path(fuente).stem if fuente else "examen")
-    clic.imprimir(f"Examen de {nombre} · {len(preguntas)} preguntas "
-                  f"({dificultad}). Responde; vacío para terminar.",
-                  clic.AZUL)
+    ui.panel(
+        f"{len(preguntas)} preguntas · dificultad {dificultad}\n"
+        "Responde pregunta a pregunta; respuesta vacía para terminar.",
+        titulo=f"Examen de {nombre}",
+    ) or clic.imprimir(
+        f"Examen de {nombre} · {len(preguntas)} preguntas "
+        f"({dificultad}). Responde; vacío para terminar.",
+        clic.AZUL,
+    )
 
     respuestas = {}
     for i, pregunta in enumerate(preguntas, 1):
@@ -452,15 +466,24 @@ def examen_crear(fuente, tema, texto, dificultad, num, modelo, proveedor):
         raise SystemExit(1)
 
     color = clic.VERDE if nota >= 5 else clic.ROJO
-    clic.imprimir(f"\nNota: {nota:.2f}", color)
+    ui.panel(
+        f"[bold]{nota:.2f}[/bold] sobre 10",
+        titulo="Nota",
+        estilo="green" if nota >= 5 else "red",
+    ) or clic.imprimir(f"\nNota: {nota:.2f}", color)
     for correccion in correcciones:
         numero = correccion.get("numero")
         nota_q = correccion.get("nota")
         bien = correccion.get("acertada")
         marca = "✔" if bien else "✘"
-        clic.imprimir(
+        color = clic.VERDE if bien else clic.ROJO
+        ui.panel(
+            f"P{numero} — {nota_q}/10\n{correccion.get('feedback', '')}",
+            titulo=f"{marca} Pregunta {numero}",
+            estilo="green" if bien else "red",
+        ) or clic.imprimir(
             f"  {marca} P{numero} ({nota_q}/10): {correccion.get('feedback', '')}",
-            clic.VERDE if bien else clic.ROJO,
+            color,
         )
     try:
         ruta = examen_mod.guardar(nombre, dificultad, nota, correcciones)
@@ -475,6 +498,8 @@ def examen_list():
     examenes = examen_mod.historial()
     if not examenes:
         clic.imprimir("Todavía no has hecho ningún examen.", clic.AZUL)
+        return
+    if ui.tabla_examenes(examenes):
         return
     for ex in examenes:
         fecha = str(ex.get("fecha", ""))[:10]
@@ -501,6 +526,31 @@ def ia(pregunta, modelo, proveedor):
         clic.imprimir(f"Error: {e}", clic.ROJO)
         raise SystemExit(1)
     clic.imprimir(respuesta, clic.VERDE)
+
+
+@app.group(name="ui")
+def ui_grupo():
+    """Activa o desactiva la interfaz con tablas y paneles."""
+
+
+@ui_grupo.command("on")
+def ui_on():
+    """Activa la interfaz rica."""
+    ui.activar(True)
+    clic.imprimir(
+        "Interfaz activada."
+        if ui.RICH else "rich no instalado: instala `pip install rich`.",
+        clic.VERDE if ui.RICH else clic.AMARILLO,
+    )
+    if ui.RICH:
+        ui.habilitar()
+
+
+@ui_grupo.command("off")
+def ui_off():
+    """Desactiva la interfaz rica."""
+    ui.activar(False)
+    clic.imprimir("Interfaz desactivada.", clic.AMARILLO)
 
 
 def main(argv=None):

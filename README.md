@@ -126,6 +126,13 @@ desarrollo y Sistemas informáticos, además de las que tengas registradas. Usa
 `--dry-run` para verlo sin mover nada; los archivos ocultos se ignoran salvo
 que uses `--ocultos`.
 
+## Interfaz (TUI con rich)
+
+Si tienes `rich` instalado (`pip install 'micli[ui]'`), `asignaturas list`,
+`resumen` y `examen list` se muestran como tablas, y los exámenes como paneles
+con bordes de color. Controla con `micli ui on` / `micli ui off` (se guarda en
+`~/.config/micli/ui.json`); `--no-color` también la desactiva.
+
 ## Acciones propias
 
 Edita `acciones.json` para añadir tus tareas automatizadas. Cada acción

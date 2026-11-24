@@ -26,13 +26,18 @@ class TestExamen(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
         os.environ["MICLI_DATOS"] = os.path.join(self.dir, "asignaturas.json")
+        os.environ["MICLI_UI_CONF"] = os.path.join(self.dir, "ui.json")
         self.ruta_resumen = os.path.join(self.dir, "tema.txt")
         with open(self.ruta_resumen, "w", encoding="utf-8") as f:
             f.write("Las plantas hacen la fotosíntesis usando luz, agua y CO2.")
+        from micli import ui as ui_mod
+
+        self.addCleanup(ui_mod._reset)
+        ui_mod._reset()
 
     def tearDown(self):
-        for var in ("MICLI_DATOS", "MICLI_IA_PROVEEDOR", "GEMINI_API_KEY",
-                    "OPENAI_API_KEY"):
+        for var in ("MICLI_DATOS", "MICLI_UI_CONF", "MICLI_IA_PROVEEDOR",
+                    "GEMINI_API_KEY", "OPENAI_API_KEY"):
             os.environ.pop(var, None)
 
     def _mock_ia(self, respuestas):
@@ -127,15 +132,15 @@ class TestExamen(unittest.TestCase):
 
         with capture_out() as buf:
             codigo = main([
-                "--no-color", "examen", "crear", self.ruta_resumen,
+                "examen", "crear", self.ruta_resumen,
                 "-t", "Biología", "-p", "gemini",
             ])
         salida = buf.getvalue()
         self.assertEqual(codigo, 0)
         self.assertIn("Examen de Biología", salida)
-        self.assertIn("Nota: 6.00", salida)
-        self.assertIn("✔ P1", salida)
-        self.assertIn("✘ P2", salida)
+        self.assertIn("6.00", salida)
+        self.assertIn("✔ Pregunta 1", salida)
+        self.assertIn("✘ Pregunta 2", salida)
         self.assertIn("Guardado en", salida)
 
     def test_examen_list_vacio(self):

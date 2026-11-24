@@ -36,7 +36,10 @@ def restaurar_color():
 
 
 def imprimir(texto="", color=None):
-    if color and not _no_color:
-        texto = f"{color}{texto}{Style.RESET_ALL}"
-    print(texto, file=out)
+    if _no_color:
+        print(texto, file=out)
+    elif color:
+        print(f"{color}{texto}{Style.RESET_ALL}", file=out)
+    else:
+        print(texto, file=out)
     out.flush()

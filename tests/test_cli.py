@@ -30,6 +30,7 @@ class TestCli(unittest.TestCase):
         os.environ["MICLI_DATOS"] = self.ruta
 
         self.ruta_acciones = os.path.join(self.dir, "acciones.json")
+        os.environ["MICLI_UI_CONF"] = self.ruta_acciones + ".ui"
         with open(self.ruta_acciones, "w", encoding="utf-8") as f:
             json.dump(
                 {
@@ -49,11 +50,13 @@ class TestCli(unittest.TestCase):
                 },
                 f,
             )
+        os.environ["MICLI_UI_CONF"] = os.path.join(self.dir, "ui.json")
         os.environ["MICLI_ACCIONES"] = self.ruta_acciones
 
     def tearDown(self):
         del os.environ["MICLI_DATOS"]
         del os.environ["MICLI_ACCIONES"]
+        del os.environ["MICLI_UI_CONF"]
 
     def run_cli(self, argv):
         with capture_out() as buf:

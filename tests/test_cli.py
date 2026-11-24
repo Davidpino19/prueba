@@ -279,6 +279,119 @@ class TestCli(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("401", out)
 
+    def test_ia_gemini_flag(self):
+        antiguo_httpx = ia.httpx
+        antiguo_key = os.environ.pop("GEMINI_API_KEY", None)
+        antiguo_prov = os.environ.pop("MICLI_IA_PROVEEDOR", None)
+
+        clase = self
+        visto = {}
+
+        class Respuesta:
+            status_code = 200
+
+            def json(self):
+                return {
+                    "candidates": [
+                        {"content": {"parts": [{"text": "Hola desde Gemini."}]}}
+                    ]
+                }
+
+        def post(url, params=None, json=None, timeout=None, headers=None):
+            visto["url"] = url
+            visto["key"] = params.get("key") if params else None
+            return Respuesta()
+
+        ia.httpx = type("m", (), {"post": post})
+        os.environ["GEMINI_API_KEY"] = "clave-gemini"
+        try:
+            code, out = self.run_cli(["ia", "-p", "gemini", "hola"])
+        finally:
+            ia.httpx = antiguo_httpx
+            os.environ.pop("GEMINI_API_KEY", None)
+            if antiguo_key is not None:
+                os.environ["GEMINI_API_KEY"] = antiguo_key
+            if antiguo_prov is not None:
+                os.environ["MICLI_IA_PROVEEDOR"] = antiguo_prov
+        self.assertEqual(code, 0)
+        self.assertIn("generativelanguage.googleapis.com", visto["url"])
+        self.assertIn("gemini-2.0-flash", visto["url"])
+        self.assertEqual(visto["key"], "clave-gemini")
+        self.assertIn("Hola desde Gemini.", out)
+
+    def test_ia_gemini_sin_key(self):
+        antiguo_httpx = ia.httpx
+        antiguo_key = os.environ.pop("GEMINI_API_KEY", None)
+        ia.httpx = type("m", (), {"post": None})
+        try:
+            code, out = self.run_cli(["ia", "-p", "gemini", "hola"])
+        finally:
+            ia.httpx = antiguo_httpx
+            if antiguo_key is not None:
+                os.environ["GEMINI_API_KEY"] = antiguo_key
+        self.assertEqual(code, 1)
+        self.assertIn("GEMINI_API_KEY", out)
+
+    def test_ia_proveedor_invalido(self):
+        with self.assertRaises(SystemExit) as ctx:
+            main(["--no-color", "ia", "-p", "otro", "hola"])
+        self.assertEqual(ctx.exception.code, 2)
+
+    def test_ia_proveedor_env_invalido(self):
+        antiguo_httpx = ia.httpx
+        antiguo = os.environ.get("MICLI_IA_PROVEEDOR")
+        ia.httpx = type("m", (), {"post": None})
+        os.environ["MICLI_IA_PROVEEDOR"] = "otro"
+        try:
+            code, out = self.run_cli(["ia", "hola"])
+        finally:
+            ia.httpx = antiguo_httpx
+            if antiguo is None:
+                del os.environ["MICLI_IA_PROVEEDOR"]
+            else:
+                os.environ["MICLI_IA_PROVEEDOR"] = antiguo
+        self.assertEqual(code, 1)
+        self.assertIn("MICLI_IA_PROVEEDOR", out)
+
+    def test_asig_ia_consejo_gemini_mock(self):
+        self.run_cli(["asignaturas", "add", "Matemáticas", "-c", "6"])
+        antiguo_httpx = ia.httpx
+        antiguo_key = os.environ.pop("GEMINI_API_KEY", None)
+
+        clase = self
+        visto = {}
+
+        class Respuesta:
+            status_code = 200
+
+            def json(self):
+                return {
+                    "candidates": [
+                        {"content": {"parts": [{"text": "Estudia más."}]}}
+                    ]
+                }
+
+        def post(url, params=None, json=None, timeout=None, headers=None):
+            visto["url"] = url
+            contenido = json["contents"][0]["parts"][0]["text"]
+            clase.assertIn("Matemáticas", contenido)
+            return Respuesta()
+
+        ia.httpx = type("m", (), {"post": post})
+        os.environ["GEMINI_API_KEY"] = "clave-gemini"
+        try:
+            code, out = self.run_cli(
+                ["asignaturas", "ia-consejo", "-p", "gemini"]
+            )
+        finally:
+            ia.httpx = antiguo_httpx
+            os.environ.pop("GEMINI_API_KEY", None)
+            if antiguo_key is not None:
+                os.environ["GEMINI_API_KEY"] = antiguo_key
+        self.assertEqual(code, 0)
+        self.assertIn("generativelanguage.googleapis.com", visto["url"])
+        self.assertIn("Estudia más.", out)
+
     def test_asig_ia_consejo_vacio(self):
         code, out = self.run_cli(["asignaturas", "ia-consejo"])
         self.assertEqual(code, 0)

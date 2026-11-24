@@ -11,6 +11,13 @@ cd prueba
 pip install -e .
 ```
 
+Si tu sistema no tiene `pip` instalado, usa el script de ayuda (instala pip
+vía `get-pip.py` en modo usuario y luego las dependencias):
+
+```bash
+sh scripts/instalar-ia.sh
+```
+
 Verifica la instalación:
 
 ```bash
@@ -20,6 +27,9 @@ python3 -m micli --help
 ```
 
 ## Uso
+
+La CLI está escrita con **click** (entrada: `micli`). La versión antigua con
+`argparse` sigue disponible como `micli-argparse` o `python3 -m micli`.
 
 ```bash
 # Saludo y utilidades rápidas
@@ -52,10 +62,12 @@ micli ejecutar --dry-run sube "fix: typo"
 micli organizar ~/Descargas
 micli organizar --dry-run ~/Descargas
 
-# IA (OpenAI) — necesita OPENAI_API_KEY
+# IA (OpenAI o Gemini) — necesita OPENAI_API_KEY o GEMINI_API_KEY
 export OPENAI_API_KEY=sk-...
 micli ia "Explícame qué es una base de datos"
 micli ia -m gpt-4o "Resume el teorema de Pitágoras"
+MICLI_IA_PROVEEDOR=gemini micli ia "Explícame qué es una base de datos"
+micli ia -p gemini "Explícame qué es una base de datos"
 micli asignaturas ia-consejo
 ```
 
@@ -64,11 +76,15 @@ micli asignaturas ia-consejo
 `micli ia <pregunta>` envía tu pregunta a la API de chat de OpenAI (por defecto
 `gpt-4o-mini`; cámbiala con `-m` o con la variable `MICLI_IA_MODELO`).
 
+Con `-p/--proveedor gemini` (o `MICLI_IA_PROVEEDOR=gemini`) usa la API de
+Gemini (`gemini-2.0-flash` por defecto) con tu `GEMINI_API_KEY`.
+
 `micli asignaturas ia-consejo` pasa tus asignaturas y notas a la IA y devuelve
 un consejo de estudio personalizado en 4-6 frases.
 
-Necesitas una API key ([créala aquí](https://platform.openai.com/api-keys)) y
-exportarla como `OPENAI_API_KEY`. Si falta la key o la librería `httpx`, el
+Necesitas una API key ([OpenAI](https://platform.openai.com/api-keys) o
+[Gemini](https://aistudio.google.com/apikey)) y exportarla como
+`OPENAI_API_KEY` o `GEMINI_API_KEY`. Si falta la key o la librería `httpx`, el
 comando avisa con un mensaje de error y sale con código 1.
 
 `micli organizar` mueve los archivos a subcarpetas según su extensión

@@ -4,11 +4,12 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from colorama import Fore, Style, init as colorama_init
+from colorama import Fore, init as colorama_init
 
 from micli import __version__
 from micli import acciones
 from micli import adios
+from micli import clic
 from micli import hola
 from micli import ia
 from micli import organizar
@@ -111,9 +112,13 @@ def build_parser():
     a_org.set_defaults(func=cmd_asig_organizar)
 
     a_ia = sub_asig.add_parser(
-        "ia-consejo", help="Consejo de estudio con IA (OpenAI)"
+        "ia-consejo", help="Consejo de estudio con IA"
     )
-    a_ia.add_argument("-m", "--modelo", help="Modelo de OpenAI (por defecto: gpt-4o-mini)")
+    a_ia.add_argument("-m", "--modelo", help="Modelo a usar (por defecto, el del proveedor)")
+    a_ia.add_argument(
+        "-p", "--proveedor", choices=sorted(ia.MODELOS),
+        help="Proveedor de IA (por defecto: MICLI_IA_PROVEEDOR u 'openai')",
+    )
     a_ia.set_defaults(func=cmd_asig_ia_consejo)
 
     resumen = sub.add_parser("resumen", help="Resumen de tus asignaturas")
@@ -151,19 +156,26 @@ def build_parser():
     )
     organizar_p.set_defaults(func=cmd_organizar)
 
-    ia_p = sub.add_parser("ia", help="Pregunta algo a la IA (OpenAI)")
+    ia_p = sub.add_parser("ia", help="Pregunta algo a la IA (OpenAI o Gemini)")
     ia_p.add_argument("pregunta", help="Texto o pregunta para la IA")
-    ia_p.add_argument("-m", "--modelo", help="Modelo de OpenAI (por defecto: gpt-4o-mini)")
+    ia_p.add_argument("-m", "--modelo", help="Modelo a usar (por defecto, el del proveedor)")
+    ia_p.add_argument(
+        "-p", "--proveedor", choices=sorted(ia.MODELOS),
+        help="Proveedor de IA (por defecto: MICLI_IA_PROVEEDOR u 'openai')",
+    )
     ia_p.set_defaults(func=cmd_ia)
 
     return parser
 
 
-def _print(texto, color, args):
-    if getattr(args, "no_color", False):
+def _print(texto, color, args=None):
+    if clic.sin_color():
         print(texto, file=out)
+    elif color:
+        print(f"{color}{texto}", file=out)
     else:
-        print(f"{color}{texto}{Style.RESET_ALL}", file=out)
+        print(texto, file=out)
+    out.flush()
 
 
 def cmd_saluda(args):
@@ -407,7 +419,11 @@ def cmd_ia(args):
     _print("Pensando...", Fore.CYAN, args)
     out.flush()
     try:
-        respuesta = ia.chatear(args.pregunta, modelo=args.modelo)
+        respuesta = ia.chatear(
+            args.pregunta,
+            modelo=args.modelo,
+            proveedor_nombre=getattr(args, "proveedor", None),
+        )
     except ia.IaError as e:
         _print(f"Error: {e}", Fore.RED, args)
         return 1
@@ -423,7 +439,11 @@ def cmd_asig_ia_consejo(args):
     _print("Pensando...", Fore.CYAN, args)
     out.flush()
     try:
-        consejo = ia.consejo_estudio(datos, modelo=args.modelo)
+        consejo = ia.consejo_estudio(
+            datos,
+            modelo=args.modelo,
+            proveedor_nombre=getattr(args, "proveedor", None),
+        )
     except ia.IaError as e:
         _print(f"Error: {e}", Fore.RED, args)
         return 1
@@ -459,6 +479,10 @@ def cmd_organizar(args):
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.no_color:
+        clic.activar_sin_color()
+    else:
+        clic.restaurar_color()
     return args.func(args)
 
 

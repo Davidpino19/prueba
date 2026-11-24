@@ -7,10 +7,11 @@ name = "micli"
 version = "0.2.0"
 description = "Mi primera CLI"
 requires-python = ">=3.8"
-dependencies = ["colorama", "httpx"]
+dependencies = ["colorama", "httpx", "click"]
 
 [project.scripts]
-micli = "micli.cli:main"
+micli = "micli.click_cli:main"
+micli-argparse = "micli.cli:main"
 
 [tool.setuptools]
 packages = ["micli"]

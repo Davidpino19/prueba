@@ -61,7 +61,10 @@ CLI mínima de aprendizaje:
 ## Sesión 4 — IA con OpenAI (`886df37` + esta sesión)
 
 1. **`micli/ia.py`** — cliente de la API de chat de OpenAI con `httpx`
-   (petición POST a `/v1/chat/completions`, sin la librería `openai`).
+    (petición POST a `/v1/chat/completions`, sin la librería `openai`).
+    - Soporte de **Gemini** (`gemini-2.0-flash`) con `MICLI_IA_PROVEEDOR` o
+      `-p/--proveedor`: misma función `chat()` que despacha a una u otra API.
+      Gemini usa `?key=...` en la URL, `contents[]` y `systemInstruction`.
    - `chat(mensajes, modelo)` → texto de la respuesta; `chatear(texto)` para
      preguntas sueltas; `consejo_estudio(datos)` construye un prompt con las
      asignaturas/notas del store.
@@ -76,6 +79,22 @@ CLI mínima de aprendizaje:
    asignaturas. Total: 49 tests.
 4. **Nota del entorno**: en esta máquina no hay `pip` ni `ensurepip`; los
    tests de `ia` mockean `httpx` a nivel de módulo para no depender de él.
+
+## Sesión 5 — click + Gemini
+
+1. **`micli/clic.py`**: capa de salida compartida (`out`, `entrada`,
+   `imprimir()`, `--no-color` global). `out` y `entrada` siguen siendo
+   sustituibles desde los tests.
+2. **`micli/click_cli.py`**: toda la CLI portada a **click** (grupo `app`,
+   `--no-color`, `--version` con `package_name`, `MicliGroup` que exige
+   subcomando → exit 2 como argparse). `pyproject.toml` → `micli` apunta a
+   click y `micli-argparse` mantiene la versión vieja.
+3. **Gemini en `ia.py`**: `-p/--proveedor` y `MICLI_IA_PROVEEDOR`
+   ('openai'|'gemini'), `GEMINI_API_KEY`, modelos por defecto en `MODELOS`.
+   Mismo `chat()` despachando a `_chat_openai` o `_chat_gemini`
+   (`contents[]` + `systemInstruction` + `?key=`).
+4. **Tests**: 54 → 58 con `tests/test_click.py` (equivalencia argparse/click:
+   códigos de salida, flujo de asignaturas) y 4 tests de Gemini mockeado.
 
 ## Cómo probarla
 

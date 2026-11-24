@@ -4,10 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "micli"
-version = "0.2.0"
+version = "0.3.0"
 description = "Mi primera CLI"
 requires-python = ">=3.8"
 dependencies = ["colorama", "httpx", "click"]
+
+[project.optional-dependencies]
+pdf = ["pypdf"]
 
 [project.scripts]
 micli = "micli.click_cli:main"

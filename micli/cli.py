@@ -165,6 +165,27 @@ def build_parser():
     )
     ia_p.set_defaults(func=cmd_ia)
 
+    examen = sub.add_parser(
+        "examen", help="Genera y corrige exámenes con IA (crear/list)"
+    )
+    sub_ex = examen.add_subparsers(dest="subcomando", required=True)
+    e_crear = sub_ex.add_parser(
+        "crear", help="Examen interactivo desde un resumen (txt/md/pdf o --texto)"
+    )
+    e_crear.add_argument("fuente", nargs="?", help="Fichero de resumen")
+    e_crear.add_argument("-t", "--tema", help="Nombre del examen")
+    e_crear.add_argument("--texto", help="Contenido pegado directamente")
+    e_crear.add_argument(
+        "-d", "--dificultad", choices=["facil", "media", "dificil"],
+        default="media",
+    )
+    e_crear.add_argument("-n", "--num", type=int, default=5, help="Nº de preguntas")
+    e_crear.add_argument("-m", "--modelo", help="Modelo")
+    e_crear.add_argument("-p", "--proveedor", choices=sorted(ia.MODELOS))
+    e_crear.set_defaults(func=cmd_examen_crear)
+    e_list = sub_ex.add_parser("list", help="Histórico de exámenes")
+    e_list.set_defaults(func=cmd_examen_list)
+
     return parser
 
 
@@ -473,6 +494,97 @@ def cmd_organizar(args):
         _print(f"Se moverían {len(movidos)} archivo(s).", Fore.YELLOW, args)
     else:
         _print(f"Organizados {len(movidos)} archivo(s).", Fore.GREEN, args)
+    return 0
+
+
+def cmd_examen_crear(args):
+    from micli import examen as examen_mod
+
+    if bool(args.fuente) == bool(args.texto):
+        _print("Indica un fichero o --texto (no ambos, ni ninguno).", Fore.RED, args)
+        return 1
+    try:
+        contenido = (
+            examen_mod.leer_resumen(args.fuente) if args.fuente else args.texto
+        )
+        preguntas = examen_mod.crear(
+            contenido,
+            dificultad=args.dificultad,
+            num=args.num,
+            modelo=args.modelo,
+            proveedor=getattr(args, "proveedor", None),
+        )
+    except examen_mod.ExamenError as e:
+        _print(f"Error: {e}", Fore.RED, args)
+        return 1
+    except ia.IaError as e:
+        _print(f"Error: {e}", Fore.RED, args)
+        return 1
+
+    nombre = args.tema or (Path(args.fuente).stem if args.fuente else "examen")
+    _print(
+        f"Examen de {nombre} · {len(preguntas)} preguntas ({args.dificultad}). "
+        "Responde; vacío para terminar.",
+        Fore.CYAN,
+        args,
+    )
+    respuestas = {}
+    for i, pregunta in enumerate(preguntas, 1):
+        _print(f"\n{i}. ({pregunta['tipo']}) {pregunta['pregunta']}", Fore.MAGENTA, args)
+        for opcion in pregunta.get("opciones", []):
+            _print(f"   {opcion}", Fore.YELLOW, args)
+        respuestas[i] = entrada("Tu respuesta: ").strip()
+        if not respuestas[i]:
+            _print("Sin respuesta: termino aquí.", Fore.YELLOW, args)
+            break
+
+    _print("Corrigendo...", Fore.CYAN, args)
+    try:
+        nota, correcciones = examen_mod.corregir(
+            contenido,
+            preguntas,
+            respuestas,
+            modelo=args.modelo,
+            proveedor=getattr(args, "proveedor", None),
+        )
+    except (examen_mod.ExamenError, ia.IaError) as e:
+        _print(f"Error: {e}", Fore.RED, args)
+        return 1
+    color = Fore.GREEN if nota >= 5 else Fore.RED
+    _print(f"\nNota: {nota:.2f}", color, args)
+    for correccion in correcciones:
+        marca = "✔" if correccion.get("acertada") else "✘"
+        c = Fore.GREEN if correccion.get("acertada") else Fore.RED
+        _print(
+            f"  {marca} P{correccion.get('numero')} "
+            f"({correccion.get('nota')}/10): {correccion.get('feedback', '')}",
+            c,
+            args,
+        )
+    try:
+        ruta = examen_mod.guardar(nombre, args.dificultad, nota, correcciones)
+        _print(f"Guardado en {ruta}", Fore.CYAN, args)
+    except OSError as e:
+        _print(f"No se pudo guardar: {e}", Fore.YELLOW, args)
+    return 0
+
+
+def cmd_examen_list(args):
+    from micli import examen as examen_mod
+
+    examenes = examen_mod.historial()
+    if not examenes:
+        _print("Todavía no has hecho ningún examen.", Fore.CYAN, args)
+        return 0
+    for ex in examenes:
+        fecha = str(ex.get("fecha", ""))[:10]
+        nota = ex.get("nota")
+        color = Fore.GREEN if (nota or 0) >= 5 else Fore.RED
+        _print(
+            f"{fecha}  {ex['nombre']} ({ex.get('dificultad')}) — {nota}/10",
+            color,
+            args,
+        )
     return 0
 
 

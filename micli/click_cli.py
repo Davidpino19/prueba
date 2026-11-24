@@ -3,6 +3,8 @@ from pathlib import Path
 import click
 
 from micli import clic
+from micli import examen as examen_mod
+from micli import ia as ia_mod
 
 
 class MicliGroup(click.Group):
@@ -279,8 +281,6 @@ def ejecutar(dry_run, accion, argumentos):
 @click.option("--ocultos", is_flag=True, help="Incluye también los archivos ocultos")
 def organizar_cmd(ruta, dry_run, ocultos):
     """Organiza archivos en carpetas por tipo."""
-    from pathlib import Path
-
     from micli import organizar
 
     try:
@@ -389,6 +389,103 @@ def asig_organizar(ruta, destino, dry_run, ocultos):
         )
 
 
+@app.group()
+def examen():
+    """Genera y corrige exámenes con IA a partir de tus resúmenes."""
+
+
+@examen.command("crear")
+@click.argument("fuente", required=False)
+@click.option("-t", "--tema", help="Nombre o tema del examen")
+@click.option("--texto", help="Contenido del resumen pegado directamente")
+@click.option("-d", "--dificultad",
+              type=click.Choice(examen_mod.DIFICULTADES), default="media",
+              show_default=True, help="Nivel de las preguntas")
+@click.option("-n", "--num", default=5, show_default=True,
+              help="Número de preguntas")
+@click.option("-m", "--modelo", help="Modelo a usar (por defecto, el del proveedor)")
+@click.option("-p", "--proveedor", type=click.Choice(["gemini", "openai"]),
+              help="Proveedor de IA")
+def examen_crear(fuente, tema, texto, dificultad, num, modelo, proveedor):
+    """Crea un examen interactivo desde un resumen (txt, md o pdf)."""
+    if bool(fuente) == bool(texto):
+        clic.imprimir("Indica un fichero o --texto (no ambos, ni ninguno).",
+                      clic.ROJO)
+        raise SystemExit(1)
+    try:
+        contenido = examen_mod.leer_resumen(fuente) if fuente else texto
+        preguntas = examen_mod.crear(
+            contenido, dificultad=dificultad, num=num, modelo=modelo,
+            proveedor=proveedor,
+        )
+    except examen_mod.ExamenError as e:
+        clic.imprimir(f"Error: {e}", clic.ROJO)
+        raise SystemExit(1)
+    except ia_mod.IaError as e:
+        clic.imprimir(f"Error: {e}", clic.ROJO)
+        raise SystemExit(1)
+
+    nombre = tema or (Path(fuente).stem if fuente else "examen")
+    clic.imprimir(f"Examen de {nombre} · {len(preguntas)} preguntas "
+                  f"({dificultad}). Responde; vacío para terminar.",
+                  clic.AZUL)
+
+    respuestas = {}
+    for i, pregunta in enumerate(preguntas, 1):
+        clic.imprimir(f"\n{i}. ({pregunta['tipo']}) {pregunta['pregunta']}",
+                      clic.MAGENTA)
+        for opcion in pregunta.get("opciones", []):
+            clic.imprimir(f"   {opcion}", clic.AMARILLO)
+        respuestas[i] = clic.entrada("Tu respuesta: ").strip()
+        if not respuestas[i]:
+            clic.imprimir("Sin respuesta: termino aquí.", clic.AMARILLO)
+            break
+
+    clic.imprimir("Corrigendo...", clic.AZUL)
+    try:
+        nota, correcciones = examen_mod.corregir(
+            contenido, preguntas, respuestas, modelo=modelo,
+            proveedor=proveedor,
+        )
+    except (examen_mod.ExamenError, ia_mod.IaError) as e:
+        clic.imprimir(f"Error: {e}", clic.ROJO)
+        raise SystemExit(1)
+
+    color = clic.VERDE if nota >= 5 else clic.ROJO
+    clic.imprimir(f"\nNota: {nota:.2f}", color)
+    for correccion in correcciones:
+        numero = correccion.get("numero")
+        nota_q = correccion.get("nota")
+        bien = correccion.get("acertada")
+        marca = "✔" if bien else "✘"
+        clic.imprimir(
+            f"  {marca} P{numero} ({nota_q}/10): {correccion.get('feedback', '')}",
+            clic.VERDE if bien else clic.ROJO,
+        )
+    try:
+        ruta = examen_mod.guardar(nombre, dificultad, nota, correcciones)
+        clic.imprimir(f"Guardado en {ruta}", clic.AZUL)
+    except OSError as e:
+        clic.imprimir(f"No se pudo guardar: {e}", clic.AMARILLO)
+
+
+@examen.command("list")
+def examen_list():
+    """Muestra el histórico de exámenes corregidos."""
+    examenes = examen_mod.historial()
+    if not examenes:
+        clic.imprimir("Todavía no has hecho ningún examen.", clic.AZUL)
+        return
+    for ex in examenes:
+        fecha = str(ex.get("fecha", ""))[:10]
+        nota = ex.get("nota")
+        color = clic.VERDE if (nota or 0) >= 5 else clic.ROJO
+        clic.imprimir(
+            f"{fecha}  {ex['nombre']} ({ex.get('dificultad')}) — {nota}/10",
+            color,
+        )
+
+
 @app.command()
 @click.argument("pregunta")
 @click.option("-m", "--modelo", help="Modelo a usar (por defecto, el del proveedor)")
@@ -396,8 +493,6 @@ def asig_organizar(ruta, destino, dry_run, ocultos):
               help="Proveedor de IA")
 def ia(pregunta, modelo, proveedor):
     """Pregunta algo a la IA (OpenAI o Gemini)."""
-    from micli import ia as ia_mod
-
     clic.imprimir("Pensando...", clic.AZUL)
     try:
         respuesta = ia_mod.chatear(pregunta, modelo=modelo,

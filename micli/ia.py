@@ -1,4 +1,5 @@
 import os
+import time
 
 try:
     import httpx
@@ -15,6 +16,10 @@ MODELOS = {
     "gemini": "gemini-flash-lite-latest",
 }
 CLAVES = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY"}
+FALLBACKS = {
+    "openai": ["gpt-4o"],
+    "gemini": ["gemini-3.8-flash", "gemini-2.5-flash"],
+}
 
 
 class IaError(Exception):
@@ -52,9 +57,8 @@ def _api_key(prov):
 def chat(mensajes, modelo=None, proveedor_nombre=None):
     """Envía `mensajes` a la API del proveedor elegido y devuelve el texto.
 
-    `mensajes` es una lista de dicts {"role": ..., "content": ...}. El
-    proveedor se elige con `proveedor_nombre`, la variable
-    MICLI_IA_PROVEEDOR, o 'openai' por defecto.
+    Con un modelo sin `-m`, si la API falla con 404 (modelo retirado) o 503
+    (saturación) se reintenta con los modelos de `FALLBACKS`.
     """
     if httpx is None:
         raise IaError(
@@ -62,36 +66,58 @@ def chat(mensajes, modelo=None, proveedor_nombre=None):
         )
     prov = proveedor(proveedor_nombre)
     clave = _api_key(prov)
-    modelo = modelo or os.environ.get("MICLI_IA_MODELO") or MODELOS[prov]
-    if prov == "openai":
-        datos, texto = _chat_openai(clave, modelo, mensajes)
-    else:
-        datos, texto = _chat_gemini(clave, modelo, mensajes)
-    if texto is not None:
-        return texto
-    raise IaError(f"Respuesta inesperada de la API: {datos}")
+    fijo = bool(modelo or os.environ.get("MICLI_IA_MODELO"))
+    modelos = ([modelo or os.environ.get("MICLI_IA_MODELO") or MODELOS[prov]]
+               if fijo else [MODELOS[prov], *FALLBACKS[prov]])
+    ultimo = None
+    for m in modelos:
+        try:
+            if prov == "openai":
+                datos, texto = _chat_openai(clave, m, mensajes)
+            else:
+                datos, texto = _chat_gemini(clave, m, mensajes)
+            if texto is not None:
+                return texto
+            ultimo = IaError(f"Respuesta inesperada de la API: {datos}")
+        except IaError as e:
+            ultimo = e
+            if fijo:
+                raise
+            error = str(e)
+            if "503" not in error and "404" not in error and "truncated" not in error.lower():
+                raise
+    raise ultimo
 
 
-def _respuesta_ok(respuesta):
-    if respuesta.status_code != 200:
-        raise IaError(
+def _respuesta_ok(respuesta, reintentos=3, reintentar=None):
+    ultimo = None
+    for intento in range(reintentos + 1):
+        if respuesta.status_code == 200:
+            return respuesta.json()
+        ultimo = IaError(
             f"La API respondió {respuesta.status_code}: "
             f"{respuesta.text[:300]}"
         )
-    return respuesta.json()
+        if respuesta.status_code != 503 or intento == reintentos:
+            raise ultimo
+        time.sleep(2 * (intento + 1))
+        respuesta = reintentar() if reintentar else respuesta
+    raise ultimo
 
 
 def _chat_openai(clave, modelo, mensajes):
-    respuesta = httpx.post(
-        URL_API,
-        headers={
-            "Authorization": f"Bearer {clave}",
-            "Content-Type": "application/json",
-        },
-        json={"model": modelo, "messages": mensajes},
-        timeout=60,
-    )
-    datos = _respuesta_ok(respuesta)
+    def enviar():
+        return httpx.post(
+            URL_API,
+            headers={
+                "Authorization": f"Bearer {clave}",
+                "Content-Type": "application/json",
+            },
+            json={"model": modelo, "messages": mensajes},
+            timeout=120,
+        )
+
+    datos = _respuesta_ok(enviar(), reintentar=enviar)
     try:
         return datos, datos["choices"][0]["message"]["content"].strip()
     except (KeyError, IndexError, AttributeError):
@@ -106,19 +132,27 @@ def _chat_gemini(clave, modelo, mensajes):
         for m in mensajes
         if m["role"] != "system"
     ]
-    cuerpo = {"contents": contenido}
+    cuerpo = {
+        "contents": contenido,
+        "generationConfig": {
+            "maxOutputTokens": 8192,
+            "responseMimeType": "application/json",
+        },
+    }
     if system:
         cuerpo["systemInstruction"] = {"parts": [{"text": system}]}
     cabeceras = {"x-goog-api-key": clave}
     params = {} if clave.startswith("AQ.") else {"key": clave}
-    respuesta = httpx.post(
-        GEMINI_URL.format(modelo=modelo),
-        params=params or None,
-        headers=cabeceras,
-        json=cuerpo,
-        timeout=60,
-    )
-    datos = _respuesta_ok(respuesta)
+    def enviar():
+        return httpx.post(
+            GEMINI_URL.format(modelo=modelo),
+            params=params or None,
+            headers=cabeceras,
+            json=cuerpo,
+            timeout=120,
+        )
+
+    datos = _respuesta_ok(enviar(), reintentar=enviar)
     try:
         texto = datos["candidates"][0]["content"]["parts"][0]["text"].strip()
         return datos, texto or None

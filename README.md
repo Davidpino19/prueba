@@ -69,7 +69,24 @@ micli ia -m gpt-4o "Resume el teorema de Pitágoras"
 MICLI_IA_PROVEEDOR=gemini micli ia "Explícame qué es una base de datos"
 micli ia -p gemini "Explícame qué es una base de datos"
 micli asignaturas ia-consejo
+
+# Exámenes con IA (desde tus resúmenes txt/md/pdf, o texto con --texto)
+micli examen crear ~/apuntes/tema4.pdf -t "Tema 4" -n 10 -d dificil -p gemini
+micli examen crear --texto "La fotosíntesis convierte luz en energía..."
+micli examen list
 ```
+
+## Exámenes (`micli examen`)
+
+`micli examen crear <resumen>` (txt, md o pdf; o `--texto "..."`) pide a la IA
+que te haga un examen interactivo: preguntas de tipo test, corto o desarrollo,
+con `-d facil|media|dificil` y `-n` número de preguntas. Respondes una a una y
+al terminar la IA corrige, te da nota 0-10 y feedback por pregunta. El
+resultado se guarda en `~/.config/micli/examenes/`; `micli examen list` muestra
+el histórico con fechas y notas.
+
+La lectura de PDF usa `pypdf` (opcional: `pip install 'micli[pdf]'`) o
+`pdftotext` si lo tienes; si no, pega el contenido con `--texto`.
 
 ## IA
 

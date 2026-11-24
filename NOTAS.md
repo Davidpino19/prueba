@@ -96,6 +96,23 @@ CLI mínima de aprendizaje:
 4. **Tests**: 54 → 58 con `tests/test_click.py` (equivalencia argparse/click:
    códigos de salida, flujo de asignaturas) y 4 tests de Gemini mockeado.
 
+## Sesión 6 — Exámenes con IA
+
+1. **`micli/examen.py`**: `leer_resumen` (txt/md directo, PDF vía `pypdf` o
+   `pdftotext` fallback), `crear()` (prompt JSON estricto → preguntas
+   test/corto/desarrollo), `corregir()` (nota 0-10 + feedback por pregunta),
+   `guardar()`/`historial()` en `~/.config/micli/examenes/`.
+2. **Comandos**: `micli examen crear [fichero|--texto] -t tema -d dificultad
+   -n nº -m -p` (interactivo: responde pregunta a pregunta) y
+   `micli examen list`. Portado también a la CLI argparse.
+3. **Gemini robusto**: cabecera `x-goog-api-key` (keys v2 `AQ.`), retry con
+   backoff en 503 (reenviando la petición), fallback de modelos cuando el
+   default da 404/503, y `generationConfig` con
+   `responseMimeType: application/json` + `maxOutputTokens` para que el JSON
+   no se trunque. Timeout 120s.
+4. **Tests**: 70 (12 nuevos en `tests/test_examen.py`, sin red: `ia.chat`
+   mockeado). Prueba real hecha: examen de fotosíntesis corregido y guardado.
+
 ## Cómo probarla
 
 ```bash

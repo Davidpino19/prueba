@@ -7,10 +7,18 @@ definidas en `acciones.json`.
 
 ## Instalación
 
+Una sola orden (requiere autenticarte en GitHub, el repo es privado; git usa
+tus credenciales guardadas):
+
 ```bash
-git clone <url-del-repositorio>
-cd prueba
-pip install -e .
+pip install "micli[ui] @ git+https://github.com/Davidpino19/prueba.git@v1.0.0"
+```
+
+Sin extras si no quieres la TUI: quita `[ui]`. Para desarrollar en local, en
+su lugar:
+
+```bash
+git clone https://github.com/Davidpino19/prueba.git && cd prueba && pip install -e .
 ```
 
 Si tu sistema no tiene `pip` instalado, usa el script de ayuda (instala pip
@@ -229,6 +237,11 @@ espera.
 ## Decisiones de arquitectura
 
 Las ADRs (Architectural Decision Records) están en [docs/adr/](docs/adr/).
+
+## Release
+
+Versión actual: **v1.0.0** (etiquetada, con [CHANGELOG.md](CHANGELOG.md) y
+notas en GitHub Releases). Desarrollo en ramas `feature/*` → PR → `main`.
 
 ## Estructura
 

@@ -19,6 +19,7 @@ Ver [0000-plantilla.md](0000-plantilla.md).
 | [0005](0005-capa-de-salida-unica-testable.md) | Capa de salida única y testeable (`micli.clic`) | Aceptado |
 | [0006](0006-acciones-de-shell-con-shlex-quote.md) | Acciones de shell declarativas con `shlex.quote` | Aceptado |
 | [0007](0007-encadenado-y-confirmacion-de-acciones.md) | Encadenado con `+` y confirmación de acciones peligrosas | Aceptado |
+| [0008](0008-capas-separadas-proveedoria-y-examen-en-dominio.md) | Capas separadas: `ProveedorIA` con fábrica y examen en el dominio | Aceptado |
 
 ## Convenciones
 

@@ -532,58 +532,19 @@ def cmd_examen_crear(args):
             modelo=args.modelo,
             proveedor=getattr(args, "proveedor", None),
         )
-    except examen_mod.ExamenError as e:
-        _print(f"Error: {e}", Fore.RED, args)
-        return 1
-    except ia.IaError as e:
-        _print(f"Error: {e}", Fore.RED, args)
-        return 1
-
-    nombre = args.tema or (Path(args.fuente).stem if args.fuente else "examen")
-    _print(
-        f"Examen de {nombre} · {len(preguntas)} preguntas ({args.dificultad}). "
-        "Responde; vacío para terminar.",
-        Fore.CYAN,
-        args,
-    )
-    respuestas = {}
-    for i, pregunta in enumerate(preguntas, 1):
-        _print(f"\n{i}. ({pregunta['tipo']}) {pregunta['pregunta']}", Fore.MAGENTA, args)
-        for opcion in pregunta.get("opciones", []):
-            _print(f"   {opcion}", Fore.YELLOW, args)
-        respuestas[i] = entrada("Tu respuesta: ").strip()
-        if not respuestas[i]:
-            _print("Sin respuesta: termino aquí.", Fore.YELLOW, args)
-            break
-
-    _print("Corrigendo...", Fore.CYAN, args)
-    try:
-        nota, correcciones = examen_mod.corregir(
-            contenido,
-            preguntas,
-            respuestas,
+        nombre = args.tema or (
+            Path(args.fuente).stem if args.fuente else "examen"
+        )
+        examen_mod.jugar(
+            nombre, contenido, preguntas, args.dificultad,
             modelo=args.modelo,
             proveedor=getattr(args, "proveedor", None),
+            imprimir=lambda texto, color=None: _print(texto, color, args),
+            entrada=entrada,
         )
     except (examen_mod.ExamenError, ia.IaError) as e:
         _print(f"Error: {e}", Fore.RED, args)
         return 1
-    color = Fore.GREEN if nota >= 5 else Fore.RED
-    _print(f"\nNota: {nota:.2f}", color, args)
-    for correccion in correcciones:
-        marca = "✔" if correccion.get("acertada") else "✘"
-        c = Fore.GREEN if correccion.get("acertada") else Fore.RED
-        _print(
-            f"  {marca} P{correccion.get('numero')} "
-            f"({correccion.get('nota')}/10): {correccion.get('feedback', '')}",
-            c,
-            args,
-        )
-    try:
-        ruta = examen_mod.guardar(nombre, args.dificultad, nota, correcciones)
-        _print(f"Guardado en {ruta}", Fore.CYAN, args)
-    except OSError as e:
-        _print(f"No se pudo guardar: {e}", Fore.YELLOW, args)
     return 0
 
 
@@ -613,7 +574,14 @@ def main(argv=None):
         clic.activar_sin_color()
     else:
         clic.restaurar_color()
-    return args.func(args)
+    try:
+        return args.func(args)
+    except KeyboardInterrupt:
+        _print("\nCancelado.", Fore.YELLOW, args)
+        return 130
+    except store.StoreError as e:
+        _print(f"Error: {e}", Fore.RED, args)
+        return 1
 
 
 if __name__ == "__main__":

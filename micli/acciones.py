@@ -11,6 +11,14 @@ class AccionError(Exception):
     pass
 
 
+class AccionNoValida(AccionError):
+    """La definición de una acción concreta está mal escrita."""
+
+
+class ConfigError(AccionError):
+    """El archivo de configuración (acciones.json) no es usable."""
+
+
 def _ruta_acciones(ruta=None):
     return ruta or os.environ.get("MICLI_ACCIONES") or RUTA_ACCIONES_POR_DEFECTO
 
@@ -18,20 +26,36 @@ def _ruta_acciones(ruta=None):
 def cargar_acciones(ruta=None):
     path = _ruta_acciones(ruta)
     if not os.path.exists(path):
-        raise AccionError(
+        raise ConfigError(
             f"No se encuentra {path}. Crea el archivo o define MICLI_ACCIONES."
         )
     try:
         with open(path, encoding="utf-8") as f:
             datos = json.load(f)
     except json.JSONDecodeError as e:
-        raise AccionError(f"{path} no es JSON válido: {e}")
+        raise ConfigError(
+            f"{path} no es JSON válido (línea {e.lineno}, columna "
+            f"{e.colno}): revisa las llaves y las comas."
+        )
+    except OSError as e:
+        raise ConfigError(f"No puedo leer {path}: {e.strerror or e}")
     acciones = datos.get("acciones")
     if not isinstance(acciones, dict):
-        raise AccionError(f"{path} debe tener una clave 'acciones' con un objeto.")
+        raise ConfigError(
+            f"{path} debe tener una clave 'acciones' con un objeto "
+            '{"nombre": {...}, ...}.'
+        )
     for nombre, acc in acciones.items():
         if not isinstance(acc, dict) or not acc.get("comando"):
-            raise AccionError(f"La acción {nombre!r} necesita un campo 'comando'.")
+            raise AccionNoValida(
+                f"La acción {nombre!r} necesita un campo 'comando' de texto."
+            )
+        if not isinstance(acc["comando"], str):
+            raise AccionNoValida(f"El 'comando' de {nombre!r} debe ser texto.")
+        if "peligrosa" in acc and not isinstance(acc["peligrosa"], bool):
+            raise AccionNoValida(
+                f"El campo 'peligrosa' de {nombre!r} debe ser true o false."
+            )
     return acciones
 
 
@@ -118,6 +142,8 @@ def segmentar(accion, argumentos):
         raise AccionError(
             "Encadenado inválido. Uso: micli ejecutar acc1 + acc2 [args]."
         )
+    assert all(s and isinstance(s[0], str) for s in segmentos), \
+        "segmentar(): cada segmento debe empezar por el nombre de acción"
     return segmentos
 
 

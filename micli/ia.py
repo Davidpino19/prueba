@@ -56,44 +56,73 @@ def _api_key(prov):
     return clave
 
 
-def chat(mensajes, modelo=None, proveedor_nombre=None):
-    """Envía `mensajes` a la API del proveedor elegido y devuelve el texto.
+class ProveedorIA:
+    """Un proveedor de chat (openai o gemini) ya resuelto y listo para usar.
 
-    Con un modelo sin `-m`, si la API falla con 404 (modelo retirado) o 503
-    (saturación) se reintenta con los modelos de `FALLBACKS`.
+    Se construye desde la configuración del usuario con
+    `ProveedorIA.desde_config()` (fábrica estática): argumentos explícitos >
+    variables de entorno (`MICLI_IA_PROVEEDOR`, `MICLI_IA_MODELO`) >
+    valores por defecto.
     """
-    if httpx is None:
-        raise IaError(
-            "Falta la librería httpx. Instálala con: pip install httpx"
-        )
-    prov = proveedor(proveedor_nombre)
-    clave = _api_key(prov)
-    fijo = bool(modelo or os.environ.get("MICLI_IA_MODELO"))
-    modelos = ([modelo or os.environ.get("MICLI_IA_MODELO") or MODELOS[prov]]
-               if fijo else [MODELOS[prov], *FALLBACKS[prov]])
-    ultimo = None
-    for m in modelos:
-        try:
-            if prov == "openai":
-                datos, texto = _chat_openai(clave, m, mensajes)
-            else:
-                datos, texto = _chat_gemini(clave, m, mensajes)
-            if texto is not None:
-                return texto
-            ultimo = IaError(f"Respuesta inesperada de la API: {datos}")
-        except RequestError:
+
+    def __init__(self, nombre, clave, modelos, modelo_fijo=False):
+        assert nombre in MODELOS, f"nombre de proveedor inesperado: {nombre!r}"
+        self.nombre = nombre
+        self.clave = clave
+        self.modelos = list(modelos)
+        self.modelo_fijo = modelo_fijo
+
+    @staticmethod
+    def desde_config(nombre=None, modelo=None):
+        if httpx is None:
             raise IaError(
-                "Sin conexión con la API de "
-                f"{prov}. Comprueba tu red (o el proxy) e inténtalo de nuevo."
+                "Falta la librería httpx. Instálala con: pip install httpx"
             )
-        except IaError as e:
-            ultimo = e
-            if fijo:
-                raise
-            error = str(e)
-            if "503" not in error and "404" not in error and "truncated" not in error.lower():
-                raise
-    raise ultimo
+        nombre = proveedor(nombre)
+        clave = _api_key(nombre)
+        fijo = bool(modelo or os.environ.get("MICLI_IA_MODELO"))
+        if fijo:
+            modelos = [modelo or os.environ.get("MICLI_IA_MODELO")
+                       or MODELOS[nombre]]
+        else:
+            modelos = [MODELOS[nombre], *FALLBACKS[nombre]]
+        return ProveedorIA(nombre, clave, modelos, modelo_fijo=fijo)
+
+    def chat(self, mensajes):
+        """Envía `mensajes` y devuelve el texto de la respuesta.
+
+        Con modelos de libre elección, si la API falla con 404 (modelo
+        retirado) o 503 (saturación) se reintenta con los siguientes modelos.
+        """
+        ultimo = None
+        for m in self.modelos:
+            try:
+                if self.nombre == "openai":
+                    datos, texto = _chat_openai(self.clave, m, mensajes)
+                else:
+                    datos, texto = _chat_gemini(self.clave, m, mensajes)
+                if texto is not None:
+                    return texto
+                ultimo = IaError(f"Respuesta inesperada de la API: {datos}")
+            except RequestError:
+                raise IaError(
+                    "Sin conexión con la API de "
+                    f"{self.nombre}. Comprueba tu red (o el proxy) e "
+                    "inténtalo de nuevo."
+                )
+            except IaError as e:
+                ultimo = e
+                if self.modelo_fijo:
+                    raise
+                error = str(e)
+                if "503" not in error and "404" not in error and "truncated" not in error.lower():
+                    raise
+        raise ultimo
+
+
+def chat(mensajes, modelo=None, proveedor_nombre=None):
+    """Compatibilidad: resuelve la configuración y delega en ProveedorIA."""
+    return ProveedorIA.desde_config(proveedor_nombre, modelo).chat(mensajes)
 
 
 def _respuesta_ok(respuesta, reintentos=3, reintentar=None):

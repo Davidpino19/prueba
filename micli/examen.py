@@ -10,6 +10,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
+from micli import clic
 from micli import ia
 
 
@@ -200,7 +201,81 @@ def corregir(contenido, preguntas, respuestas, modelo=None, proveedor=None):
 def ruta_examenes():
     from micli import store
 
-    return Path(store._rutas()).parent / "examenes"
+    return Path(store.carpeta_datos()) / "examenes"
+
+
+def jugar(nombre, contenido, preguntas, dificultad, modelo=None,
+          proveedor=None, imprimir=None, entrada=None, panel_fn=None):
+    """Examen interactivo completo: preguntas, corrección, feedback y guardado.
+
+    `imprimir(texto, color=None)` y `entrada(prompt)` permiten al frontend
+    sustituir la E/S (por defecto, `micli.clic`); `panel_fn(texto, titulo=…,
+    estilo=…)` devuelve True si pintó el panel rico. Propaga ExamenError e
+    IaError si la corrección falla. Devuelve (nota, ruta_o_None).
+    """
+    if imprimir is None:
+        imprimir = lambda texto, color=None: clic.imprimir(texto, color)
+    if entrada is None:
+        entrada = clic.entrada
+
+    aviso = (
+        f"{len(preguntas)} preguntas · dificultad {dificultad}\n"
+        "Responde pregunta a pregunta; respuesta vacía para terminar."
+    )
+    if not (panel_fn and panel_fn(aviso, titulo=f"Examen de {nombre}")):
+        imprimir(
+            f"Examen de {nombre} · {len(preguntas)} preguntas "
+            f"({dificultad}). Responde; vacío para terminar.",
+            clic.AZUL,
+        )
+
+    respuestas = {}
+    for i, pregunta in enumerate(preguntas, 1):
+        imprimir(f"\n{i}. ({pregunta['tipo']}) {pregunta['pregunta']}",
+                 clic.MAGENTA)
+        for opcion in pregunta.get("opciones", []):
+            imprimir(f"   {opcion}", clic.AMARILLO)
+        respuestas[i] = (entrada("Tu respuesta: ") or "").strip()
+        if not respuestas[i]:
+            imprimir("Sin respuesta: termino aquí.", clic.AMARILLO)
+            break
+
+    imprimir("Corrigendo...", clic.AZUL)
+    nota, correcciones = corregir(
+        contenido, preguntas, respuestas, modelo=modelo, proveedor=proveedor
+    )
+
+    color = clic.VERDE if nota >= 5 else clic.ROJO
+    if not (panel_fn and panel_fn(
+        f"[bold]{nota:.2f}[/bold] sobre 10", titulo="Nota",
+        estilo="green" if nota >= 5 else "red",
+    )):
+        imprimir(f"\nNota: {nota:.2f}", color)
+    for correccion in correcciones:
+        bien = correccion.get("acertada")
+        marca = "✔" if bien else "✘"
+        detalle = (
+            f"P{correccion.get('numero')} — {correccion.get('nota')}/10\n"
+            f"{correccion.get('feedback', '')}"
+        )
+        if not (panel_fn and panel_fn(
+            detalle, titulo=f"{marca} Pregunta {correccion.get('numero')}",
+            estilo="green" if bien else "red",
+        )):
+            imprimir(
+                f"  {marca} P{correccion.get('numero')} "
+                f"({correccion.get('nota')}/10): "
+                f"{correccion.get('feedback', '')}",
+                clic.VERDE if bien else clic.ROJO,
+            )
+
+    ruta = None
+    try:
+        ruta = guardar(nombre, dificultad, nota, correcciones)
+        imprimir(f"Guardado en {ruta}", clic.AZUL)
+    except OSError as e:
+        imprimir(f"No se pudo guardar: {e}", clic.AMARILLO)
+    return nota, ruta
 
 
 def guardar(nombre, dificultad, nota, correcciones):

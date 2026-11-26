@@ -98,6 +98,15 @@ class TestEjecutar(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("Encadenado inválido", clic.out.getvalue())
 
+    def test_ctrl_c_devuelve_130_sin_traceback(self):
+        def Interrumpe(_p=""):
+            raise KeyboardInterrupt()
+
+        with mock.patch.object(clic, "entrada", Interrumpe):
+            code = main_click(["--no-color", "ejecutar", "borra"])
+        self.assertEqual(code, 130)
+        self.assertNotIn("Traceback", clic.out.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

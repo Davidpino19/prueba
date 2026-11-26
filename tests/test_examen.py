@@ -32,8 +32,8 @@ class TestExamen(unittest.TestCase):
             f.write("Las plantas hacen la fotosíntesis usando luz, agua y CO2.")
         from micli import ui as ui_mod
 
-        self.addCleanup(ui_mod._reset)
-        ui_mod._reset()
+        self.addCleanup(ui_mod.reset)
+        ui_mod.reset()
 
     def tearDown(self):
         for var in ("MICLI_DATOS", "MICLI_UI_CONF", "MICLI_IA_PROVEEDOR",
@@ -154,6 +154,44 @@ class TestExamen(unittest.TestCase):
             codigo = main(["--no-color", "examen", "crear"])
         self.assertEqual(codigo, 1)
         self.assertIn("Indica un fichero", buf.getvalue())
+
+    def test_jugar_flujo_completo(self):
+        correccion = json.dumps({
+            "nota": 8.5,
+            "respuestas": [
+                {"numero": 1, "nota": 8.5, "acertada": True,
+                 "feedback": "Bien"},
+            ],
+        })
+        self._mock_ia([correccion])
+        lineas = []
+        nota, ruta = examen_mod.jugar(
+            "Tema", "contenido del resumen",
+            [{"pregunta": "¿Qué es la fotosíntesis?", "tipo": "corto"}],
+            "media",
+            imprimir=lambda t, c=None: lineas.append(t),
+            entrada=lambda p: "Convertir luz en energía",
+        )
+        self.assertEqual(nota, 8.5)
+        self.assertTrue(ruta and ruta.exists())
+        self.assertIn("Nota: 8.50", "\n".join(lineas))
+        self.assertIn("✔ P1 (8.5/10)", "\n".join(lineas))
+
+    def test_proveedor_desde_config(self):
+        os.environ["GEMINI_API_KEY"] = "AQ.finta"
+        os.environ["MICLI_IA_PROVEEDOR"] = "gemini"
+        prov = ia.ProveedorIA.desde_config()
+        self.assertEqual(prov.nombre, "gemini")
+        self.assertFalse(prov.modelo_fijo)
+        self.assertEqual(prov.modelos[0], ia.MODELOS["gemini"])
+
+        os.environ["OPENAI_API_KEY"] = "sk-finta"
+        fijo = ia.ProveedorIA.desde_config("openai", "gpt-4o")
+        self.assertTrue(fijo.modelo_fijo)
+        self.assertEqual(fijo.modelos, ["gpt-4o"])
+
+        with self.assertRaises(ia.IaError):
+            ia.ProveedorIA.desde_config("otro")
 
 
 if __name__ == "__main__":

@@ -27,7 +27,7 @@ def app(ctx, no_color):
     else:
         clic.restaurar_color()
         ui.habilitar()
-        ui._reset()
+        ui.reset()
 
 
 @app.command()
@@ -441,70 +441,13 @@ def examen_crear(fuente, tema, texto, dificultad, num, modelo, proveedor):
             contenido, dificultad=dificultad, num=num, modelo=modelo,
             proveedor=proveedor,
         )
-    except examen_mod.ExamenError as e:
-        clic.imprimir(f"Error: {e}", clic.ROJO)
-        raise SystemExit(1)
-    except ia_mod.IaError as e:
-        clic.imprimir(f"Error: {e}", clic.ROJO)
-        raise SystemExit(1)
-
-    nombre = tema or (Path(fuente).stem if fuente else "examen")
-    ui.panel(
-        f"{len(preguntas)} preguntas · dificultad {dificultad}\n"
-        "Responde pregunta a pregunta; respuesta vacía para terminar.",
-        titulo=f"Examen de {nombre}",
-    ) or clic.imprimir(
-        f"Examen de {nombre} · {len(preguntas)} preguntas "
-        f"({dificultad}). Responde; vacío para terminar.",
-        clic.AZUL,
-    )
-
-    respuestas = {}
-    for i, pregunta in enumerate(preguntas, 1):
-        clic.imprimir(f"\n{i}. ({pregunta['tipo']}) {pregunta['pregunta']}",
-                      clic.MAGENTA)
-        for opcion in pregunta.get("opciones", []):
-            clic.imprimir(f"   {opcion}", clic.AMARILLO)
-        respuestas[i] = clic.entrada("Tu respuesta: ").strip()
-        if not respuestas[i]:
-            clic.imprimir("Sin respuesta: termino aquí.", clic.AMARILLO)
-            break
-
-    clic.imprimir("Corrigendo...", clic.AZUL)
-    try:
-        nota, correcciones = examen_mod.corregir(
-            contenido, preguntas, respuestas, modelo=modelo,
-            proveedor=proveedor,
-        )
+        nombre = tema or (Path(fuente).stem if fuente else "examen")
+        examen_mod.jugar(nombre, contenido, preguntas, dificultad,
+                         modelo=modelo, proveedor=proveedor,
+                         panel_fn=ui.panel)
     except (examen_mod.ExamenError, ia_mod.IaError) as e:
         clic.imprimir(f"Error: {e}", clic.ROJO)
         raise SystemExit(1)
-
-    color = clic.VERDE if nota >= 5 else clic.ROJO
-    ui.panel(
-        f"[bold]{nota:.2f}[/bold] sobre 10",
-        titulo="Nota",
-        estilo="green" if nota >= 5 else "red",
-    ) or clic.imprimir(f"\nNota: {nota:.2f}", color)
-    for correccion in correcciones:
-        numero = correccion.get("numero")
-        nota_q = correccion.get("nota")
-        bien = correccion.get("acertada")
-        marca = "✔" if bien else "✘"
-        color = clic.VERDE if bien else clic.ROJO
-        ui.panel(
-            f"P{numero} — {nota_q}/10\n{correccion.get('feedback', '')}",
-            titulo=f"{marca} Pregunta {numero}",
-            estilo="green" if bien else "red",
-        ) or clic.imprimir(
-            f"  {marca} P{numero} ({nota_q}/10): {correccion.get('feedback', '')}",
-            color,
-        )
-    try:
-        ruta = examen_mod.guardar(nombre, dificultad, nota, correcciones)
-        clic.imprimir(f"Guardado en {ruta}", clic.AZUL)
-    except OSError as e:
-        clic.imprimir(f"No se pudo guardar: {e}", clic.AMARILLO)
 
 
 @examen.command("list")
@@ -570,10 +513,18 @@ def ui_off():
 
 def main(argv=None):
     args = list(argv) if argv is not None else None
+    from micli import store
+
     try:
         app.main(args=args, prog_name="micli", standalone_mode=False)
     except SystemExit as e:
         return e.code or 0
+    except KeyboardInterrupt:
+        clic.imprimir("\nCancelado.", clic.AMARILLO)
+        return 130
+    except store.StoreError as e:
+        clic.imprimir(f"Error: {e}", clic.ROJO)
+        return 1
     except click.UsageError as e:
         e.show()
         return e.exit_code

@@ -163,6 +163,16 @@ acción es peligrosa) sin ejecutarlo; las acciones con `"peligrosa": true`
 piden confirmación explícita antes de ejecutarse; al encadenar con `+` la
 ejecución se detiene si una acción falla.
 
+## Errores
+
+Usa excepciones propias (`IaError`, `AccionError` con sus subclases
+`AccionNoValida` y `ConfigError`, `OrganizarError`, `ExamenError`,
+`StoreError`, `AsignaturaInexistente`, `AsignaturaDuplicada`), todas con
+mensajes en lenguaje humano. Ante cualquier error previsible imprime
+`Error: ...` y sale con código 1; `Ctrl+C` muestra `Cancelado.` y sale con
+130, sin tracebacks. Los `assert` del código marcan invariantes internas de
+desarrollo (se desactivan con `python -O`).
+
 ## Tests
 
 ```bash
@@ -172,3 +182,24 @@ python3 -m unittest discover -s tests -v
 ## Decisiones de arquitectura
 
 Las ADRs (Architectural Decision Records) están en [docs/adr/](docs/adr/).
+
+## Estructura
+
+| Módulo | Responsabilidad |
+|--------|-----------------|
+| `micli/click_cli.py` (y `cli.py` heredado) | Interfaz: parsear argumentos, mostrar resultados, salir con códigos |
+| `micli/clic.py` | Capa de E/S única: color, salida, entrada, `--no-color` |
+| `micli/ui.py` | Renderizado opcional con `rich` (tablas, paneles) |
+| `micli/store.py` | Persistencia JSON de asignaturas |
+| `micli/acciones.py` | Motor de acciones: carga/valida config, sustituye placeholders, encadena y confirma |
+| `micli/ia.py` | `ProveedorIA` con fábrica `desde_config()`; HTTP con `httpx` para OpenAI y Gemini |
+| `micli/examen.py` | Dominio de exámenes: `leer_resumen`, `crear`, `corregir`, `jugar`, `historial` |
+| `micli/organizar.py` | Dominio de organización de archivos |
+| `micli/hola.py`, `adios.py` | Contenido de saludos y despedidas |
+| `tests/` | Tests unittest |
+
+Reglas de visibilidad: nada fuera de un módulo llama a sus `._privados`;
+el estado compartido (color, destino de salida) pasa por `clic.py`, no por
+variables sueltas. Las aserciones internas (`assert`) solo vigilan
+invariantes de desarrollo y desaparecen con `python -O`.
+

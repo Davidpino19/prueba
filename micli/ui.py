@@ -46,9 +46,13 @@ def activar(valor=True):
         json.dump({"ui": bool(valor)}, f)
 
 
-def _reset():
+def reset():
+    """Descarta la consola cacheada (tras cambiar destino o preferencias)."""
     global _consola
     _consola = None
+
+
+_reset = reset  # compatibilidad con usos y tests anteriores
 
 
 _consola = None

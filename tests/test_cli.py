@@ -533,6 +533,43 @@ class TestCli(unittest.TestCase):
         self.assertIn("(acción peligrosa", out)
         self.assertNotIn("$ echo borrando", out)
 
+    def test_datos_corruptos_mensaje_humano_sin_traceback(self):
+        with open(self.ruta, "w", encoding="utf-8") as f:
+            f.write("{ roto")
+        code, out = self.run_cli(["resumen"])
+        self.assertEqual(code, 1)
+        self.assertIn("no es JSON válido", out)
+        self.assertNotIn("Traceback", out)
+
+    def test_acciones_corruptas_sin_traceback(self):
+        with open(self.ruta_acciones, "w", encoding="utf-8") as f:
+            f.write("{ roto")
+        code, out = self.run_cli(["acciones"])
+        self.assertEqual(code, 1)
+        self.assertIn("revisa las llaves y las comas", out)
+        self.assertNotIn("Traceback", out)
+
+    def test_accion_peligrosa_no_booleana(self):
+        with open(self.ruta_acciones, "w", encoding="utf-8") as f:
+            json.dump({"acciones": {"x": {"comando": "echo", "peligrosa": "si"}}}, f)
+        code, out = self.run_cli(["ejecutar", "x"])
+        self.assertEqual(code, 1)
+        self.assertIn("true o false", out)
+
+    def test_ctrl_c_cancela_sin_traceback(self):
+        def Interrumpe(_prompt=""):
+            raise KeyboardInterrupt()
+
+        antiguo = cli.entrada
+        cli.entrada = Interrumpe
+        try:
+            with capture_out() as buf:
+                code = main(["--no-color", "ejecutar", "borra"])
+        finally:
+            cli.entrada = antiguo
+        self.assertEqual(code, 130)
+        self.assertNotIn("Traceback", buf.getvalue())
+
     def test_ejecutar_codigo_de_salida(self):
         code, out = self.run_cli(["ejecutar", "falla"])
         self.assertEqual(code, 3)

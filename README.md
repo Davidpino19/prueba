@@ -145,3 +145,7 @@ sustituyen (citados con `shlex.quote`) por los argumentos que pases a
 ```bash
 python3 -m unittest discover -s tests -v
 ```
+
+## Decisiones de arquitectura
+
+Las ADRs (Architectural Decision Records) están en [docs/adr/](docs/adr/).

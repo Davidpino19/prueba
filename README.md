@@ -1,5 +1,7 @@
 # micli
 
+[![Tests](https://github.com/Davidpino19/prueba/actions/workflows/ci.yml/badge.svg)](https://github.com/Davidpino19/prueba/actions/workflows/ci.yml)
+
 CLI de ejemplo para gestionar asignaturas y ejecutar acciones automatizadas
 definidas en `acciones.json`.
 
@@ -175,9 +177,54 @@ desarrollo (se desactivan con `python -O`).
 
 ## Tests
 
+89 tests unittest (65 sobre la interfaz argparse heredada y 24 sobre click;
+así el equivalencia entre ambas no se rompe). Sin
+dependencias de red: la IA y `httpx` se sustituyen con `mock`, y los ficheros
+de configuración se apuntan a `tempfile` con `MICLI_DATOS`/`MICLI_ACCIONES`.
+
 ```bash
 python3 -m unittest discover -s tests -v
 ```
+
+Se ejecutan en **GitHub Actions** (`.github/workflows/ci.yml`) en Python 3.10
+y 3.12 en cada push y PR, instalando solo las dependencias base.
+
+### Caminos felices
+
+Cada comando tiene su ruta nominal: `saluda`/`hola`/`adios`/`ahora` con y sin
+flags, alta/lista/nota/borrado de asignaturas, `resumen`, `acciones`,
+`ejecutar` (dry-run, con argumentos posicionales y nombrados, ejecución real),
+`organizar`, exámenes (`crear` → `corregir` → `list` con el flujo completo por
+CLI) e IA (`micli ia` y `ia-consejo` para OpenAI y Gemini con la respuesta
+mock). Ejemplo de aserción y su lectura:
+
+```python
+code, out = self.run_cli(["ejecutar", "eco", "hola mundo"])   # dry-run
+self.assertEqual(out, "echo hola 'hola mundo'\n")
+# el argumento con espacio va citado con shlex.quote (no se parte en dos)
+# y dry-run NO ejecuta: solo imprime el comando construido.
+```
+
+### Casos feos auditados (más de 3)
+
+Cada uno comprueba que la CLI falla con mensaje humano y código de salida,
+nunca con traceback:
+
+| Test | Situación | Afirmación clave |
+|------|-----------|------------------|
+| `test_ejecutar_inexistente` / `test_asig_remove_inexistente` | acción o asignatura que no existe | `code == 1` y `"no existe"` en la salida (la salida está controlada, no es un `KeyError` en crudo) |
+| `test_datos_corruptos_mensaje_humano_sin_traceback` | `asignaturas.json` con JSON roto | sale con 1, dice `"no es JSON válido"` y `assertNotIn("Traceback", ...)` |
+| `test_acciones_corruptas_sin_traceback` | `acciones.json` mal formado | sale con 1, `"revisa las llaves y las comas"`, sin traceback |
+| `test_ctrl_c_cancela_sin_traceback` | `Ctrl+C` a mitad de una acción | `code == 130` (el 128+SIGINT de siempre) y sin traceback |
+| `test_ejecutar_encadenado_para_al_fallar` | `falla + eco` y `falla` devuelve 3 | `code == 3` (propaga el código) y la segunda acción NO se ejecuta: `"hola x"` ausente |
+| `test_ejecutar_peligrosa_cancela` | acción `"peligrosa"` y respuesta `no` | sale con 0 pero `"Cancelada"` y **no** aparece `"borrando"`: no ejecutó nada |
+| `test_ia_sin_api_key` / `test_ia_error_api` | falta la key / la API devuelve 401 | sale con 1 y el mensaje explica qué exportar o el `401` |
+| `test_ia_sin_conexion_explica_y_sale_1` | sin red (`httpx.ConnectError` mockeado) | sale con 1 y `"Sin conexión"` |
+| `test_ejecutar_falta_parametro` | placeholder `{1}` sin valor | sale con 1 y `"Faltan parámetros"` (no reemplaza a vacío en silencio) |
+
+Para defender la auditoría basta con abrir cada test, citar su `assertIn` /
+`assertEqual` y describir qué fallo de usuario imita y qué código de salida
+espera.
 
 ## Decisiones de arquitectura
 

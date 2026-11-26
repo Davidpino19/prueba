@@ -132,15 +132,15 @@ class TestExamen(unittest.TestCase):
 
         with capture_out() as buf:
             codigo = main([
-                "examen", "crear", self.ruta_resumen,
+                "--no-color", "examen", "crear", self.ruta_resumen,
                 "-t", "Biología", "-p", "gemini",
             ])
         salida = buf.getvalue()
         self.assertEqual(codigo, 0)
         self.assertIn("Examen de Biología", salida)
         self.assertIn("6.00", salida)
-        self.assertIn("✔ Pregunta 1", salida)
-        self.assertIn("✘ Pregunta 2", salida)
+        self.assertIn("✔ P1 (8/10)", salida)
+        self.assertIn("✘ P2 (4/10)", salida)
         self.assertIn("Guardado en", salida)
 
     def test_examen_list_vacio(self):

@@ -30,6 +30,23 @@
       "descripcion": "Copia de seguridad de ~/.config/micli a respaldos/",
       "comando": "mkdir -p respaldos && tar czf respaldos/micli-config-$(date +%Y%m%d-%H%M).tgz -C ~/.config micli && ls -1t respaldos | head -1",
       "ayuda": "micli ejecutar respaldo"
+    },
+    "consejo": {
+      "descripcion": "Consejo de estudio con IA según tus asignaturas y notas",
+      "comando": "micli asignaturas ia-consejo",
+      "ayuda": "micli ejecutar consejo"
+    },
+    "pregunta": {
+      "descripcion": "Pregunta algo a la IA por consola",
+      "comando": "micli ia {1}",
+      "ayuda": "micli ejecutar pregunta 'qué es una vista SQL'",
+      "ejemplos": ["micli ejecutar pregunta 'qué es una vista SQL'"]
+    },
+    "examen": {
+      "descripcion": "Examen con IA desde un resumen (txt/md/pdf)",
+      "comando": "micli examen crear {1}",
+      "ayuda": "micli ejecutar examen ~/apuntes/tema4.pdf",
+      "ejemplos": ["micli ejecutar examen ~/apuntes/tema4.pdf"]
     }
   }
 }

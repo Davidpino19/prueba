@@ -144,13 +144,15 @@ declara un comando de shell con placeholders `{1}`, `{2}`, ... que se
 sustituyen (citados con `shlex.quote`) por los argumentos que pases a
 `micli ejecutar`.
 
-Incluye 6 acciones listas: `estado`, `sube`, `limpia` (peligrosa), `prueba`,
-`pendientes` y `respaldo`.
+Incluye 9 acciones listas: `estado`, `sube`, `limpia` (peligrosa), `prueba`,
+`pendientes`, `respaldo` y tres con IA: `consejo`, `pregunta` y `examen`
+(necesitan su API key).
 
 ```bash
 micli acciones                          # lista con descripción y ejemplos
 micli ejecutar pendientes               # TODO/FIXME del código
 micli ejecutar prueba + estado          # encadena acciones con + (para si una falla)
+micli ejecutar pregunta 'qué es una vista SQL'   # IA vía acciones
 micli ejecutar --dry-run limpia         # simula antes de ejecutar
 micli ejecutar limpia                   # pide confirmación (acción "peligrosa")
 micli ejecutar --yes limpia             # salta la confirmación

@@ -233,7 +233,8 @@ def acciones():
         clic.imprimir("No hay acciones definidas.", clic.AZUL)
         return
     for nombre, acc in definidas.items():
-        clic.imprimir(f"{nombre}: {acc.get('descripcion', '')}", clic.AZUL)
+        aviso = " (peligrosa)" if acc.get("peligrosa") else ""
+        clic.imprimir(f"{nombre}: {acc.get('descripcion', '')}{aviso}", clic.AZUL)
         if acc.get("ayuda"):
             clic.imprimir(f"  {acc['ayuda']}", clic.AMARILLO)
         for ejemplo in acc.get("ejemplos", []):
@@ -242,45 +243,59 @@ def acciones():
 
 @app.command()
 @click.option("-n", "--dry-run", is_flag=True, help="Muestra el comando sin ejecutarlo")
+@click.option("-y", "--yes", is_flag=True,
+              help="No pedir confirmación en acciones peligrosas")
 @click.argument("accion")
 @click.argument("argumentos", nargs=-1, type=click.UNPROCESSED)
-def ejecutar(dry_run, accion, argumentos):
-    """Ejecuta una acción de acciones.json."""
+def ejecutar(dry_run, yes, accion, argumentos):
+    """Ejecuta una o varias acciones de acciones.json (separadas por +)."""
     import subprocess
 
     from micli import acciones as acciones_mod
 
     try:
         definidas = acciones_mod.cargar_acciones()
-    except acciones_mod.AccionError as e:
-        clic.imprimir(f"Error: {e}", clic.ROJO)
-        raise SystemExit(1)
-    acc = definidas.get(accion)
-    if acc is None:
-        clic.imprimir(f"Error: la acción {accion!r} no existe.", clic.ROJO)
-        raise SystemExit(1)
-    try:
-        comando = acciones_mod.construir(acc["comando"], list(argumentos))
+        segmentos = acciones_mod.segmentar(accion, argumentos)
     except acciones_mod.AccionError as e:
         clic.imprimir(f"Error: {e}", clic.ROJO)
         raise SystemExit(1)
 
-    if dry_run:
-        clic.imprimir(comando, clic.MAGENTA)
-        return
+    for seg in segmentos:
+        nombre, args = seg[0], seg[1:]
+        acc = definidas.get(nombre)
+        if acc is None:
+            clic.imprimir(f"Error: la acción {nombre!r} no existe.", clic.ROJO)
+            raise SystemExit(1)
+        try:
+            comando = acciones_mod.construir(acc["comando"], args)
+        except acciones_mod.AccionError as e:
+            clic.imprimir(f"Error: {e}", clic.ROJO)
+            raise SystemExit(1)
 
-    clic.imprimir(f"$ {comando}", clic.AZUL)
-    resultado = subprocess.run(
-        comando, shell=True, text=True,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-    )
-    if resultado.stdout:
-        print(resultado.stdout, end="", file=clic.out)
-        clic.out.flush()
-    if resultado.returncode != 0:
-        clic.imprimir(f"La acción terminó con código {resultado.returncode}.",
-                      clic.ROJO)
-        raise SystemExit(resultado.returncode)
+        if dry_run:
+            clic.imprimir(comando, clic.MAGENTA)
+            if acciones_mod.es_peligrosa(acc):
+                clic.imprimir("  (acción peligrosa: borrará/sobrescribirá)",
+                              clic.AMARILLO)
+            continue
+
+        if acciones_mod.es_peligrosa(acc) and not yes:
+            if not acciones_mod.confirmar(nombre, acc, clic.entrada):
+                clic.imprimir(f"Cancelada: {nombre}.", clic.AMARILLO)
+                return
+
+        clic.imprimir(f"$ {comando}", clic.AZUL)
+        resultado = subprocess.run(
+            comando, shell=True, text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        )
+        if resultado.stdout:
+            print(resultado.stdout, end="", file=clic.out)
+            clic.out.flush()
+        if resultado.returncode != 0:
+            clic.imprimir(f"La acción terminó con código {resultado.returncode}.",
+                          clic.ROJO)
+            raise SystemExit(resultado.returncode)
 
 
 @app.command("organizar")

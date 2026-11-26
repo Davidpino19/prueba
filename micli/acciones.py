@@ -100,3 +100,36 @@ def construir(comando, argumentos):
             plantilla,
         )
     return plantilla.replace("\x00", "{").replace("\x01", "}")
+
+
+def segmentar(accion, argumentos):
+    """Divide `accion + argumentos` en segmentos separados por `+`.
+
+    Cada segmento es [nombre-accion, args...]. Permite encadenar:
+    `micli ejecutar prueba + estado`.
+    """
+    segmentos = [[]]
+    for token in [accion] + list(argumentos):
+        if token == "+":
+            segmentos.append([])
+        else:
+            segmentos[-1].append(token)
+    if any(not s for s in segmentos):
+        raise AccionError(
+            "Encadenado inválido. Uso: micli ejecutar acc1 + acc2 [args]."
+        )
+    return segmentos
+
+
+def es_peligrosa(acc):
+    return bool(acc.get("peligrosa"))
+
+
+def confirmar(nombre, acc, entrada_fn):
+    """Pide confirmación al usuario para acciones peligrosas."""
+    aviso = acc.get("aviso", "puede borrar o sobreescribir archivos")
+    respuesta = entrada_fn(
+        f"La acción {nombre!r} es peligrosa ({aviso}). "
+        "¿Ejecutarla? (escribe sí): "
+    )
+    return (respuesta or "").strip().lower() in ("si", "sí", "s", "yes", "y")

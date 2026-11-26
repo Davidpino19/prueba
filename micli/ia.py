@@ -3,8 +3,10 @@ import time
 
 try:
     import httpx
+    from httpx import RequestError
 except ImportError:
     httpx = None
+    RequestError = ConnectionError
 
 URL_API = "https://api.openai.com/v1/chat/completions"
 GEMINI_URL = (
@@ -79,6 +81,11 @@ def chat(mensajes, modelo=None, proveedor_nombre=None):
             if texto is not None:
                 return texto
             ultimo = IaError(f"Respuesta inesperada de la API: {datos}")
+        except RequestError:
+            raise IaError(
+                "Sin conexión con la API de "
+                f"{prov}. Comprueba tu red (o el proxy) e inténtalo de nuevo."
+            )
         except IaError as e:
             ultimo = e
             if fijo:

@@ -94,30 +94,23 @@ La lectura de PDF usa `pypdf` (opcional: `pip install 'micli[pdf]'`) o
 `gpt-4o-mini`; cámbiala con `-m` o con la variable `MICLI_IA_MODELO`).
 
 Con `-p/--proveedor gemini` (o `MICLI_IA_PROVEEDOR=gemini`) usa la API de
-Gemini (`gemini-2.0-flash` por defecto) con tu `GEMINI_API_KEY`.
+Gemini (`gemini-flash-lite-latest` por defecto) con tu `GEMINI_API_KEY`.
 
 `micli asignaturas ia-consejo` pasa tus asignaturas y notas a la IA y devuelve
 un consejo de estudio personalizado en 4-6 frases.
 
 Necesitas una API key ([OpenAI](https://platform.openai.com/api-keys) o
 [Gemini](https://aistudio.google.com/apikey)) y exportarla como
-`OPENAI_API_KEY` o `GEMINI_API_KEY`. Si falta la key o la librería `httpx`, el
-comando avisa con un mensaje de error y sale con código 1.
+`OPENAI_API_KEY` o `GEMINI_API_KEY`. Si falta la key o la librería `httpx`, o
+no hay red, el comando lo explica con un mensaje claro (p. ej. `Sin conexión
+con la API...`) y sale con código 1; el resto de comandos no necesita red.
+
+## Organizar archivos
 
 `micli organizar` mueve los archivos a subcarpetas según su extensión
 (`imagenes`, `documentos`, `videos`, `audio`, `codigo`, `comprimidos`,
 `datos`, `otros`). Ignora archivos ocultos salvo que uses `--ocultos`, y no
 sobrescribe: si ya existe un archivo con el mismo nombre añade ` (1)`, ` (2)`, etc.
-
-`--no-color` desactiva los colores en cualquier comando.
-
-`micli hola` muestra un saludo con un chiste o una frase motivadora al azar.
-Con `--tipo` puedes pedir `chiste`, `frase` o solo `saludo`. El contenido está
-en `micli/hola.py`, así que puedes añadir tus propios chistes y frases.
-
-`micli adios` hace lo mismo al despedirte: una despedida + chiste o frase al
-azar (`--tipo chiste|frase|despedida`). Las despedidas están en
-`micli/adios.py`.
 
 `micli asignaturas organizar` pregunta a qué asignatura pertenece cada archivo y
 lo mueve a `~/Asignaturas/<Asignatura>/` (o a la carpeta de `--destino`). Las
@@ -125,6 +118,17 @@ asignaturas por defecto son Programación, Base de datos, Lenguajes, Entornos de
 desarrollo y Sistemas informáticos, además de las que tengas registradas. Usa
 `--dry-run` para verlo sin mover nada; los archivos ocultos se ignoran salvo
 que uses `--ocultos`.
+
+## Más utilidades
+
+- `micli hola`: saludo con un chiste o una frase motivadora al azar (`--tipo
+  chiste|frase|saludo`). El contenido está en `micli/hola.py`: puedes añadir el
+  tuyo.
+- `micli adios`: lo mismo al despedirte (`--tipo chiste|frase|despedida`); las
+  despedidas están en `micli/adios.py`.
+- `micli ahora`: fecha y hora actuales; `-f` acepta un formato strftime
+  (ej. `-f "%d/%m/%Y"`).
+- `--no-color`: desactiva los colores en cualquier comando.
 
 ## Interfaz (TUI con rich)
 
@@ -139,6 +143,23 @@ Edita `acciones.json` para añadir tus tareas automatizadas. Cada acción
 declara un comando de shell con placeholders `{1}`, `{2}`, ... que se
 sustituyen (citados con `shlex.quote`) por los argumentos que pases a
 `micli ejecutar`.
+
+Incluye 6 acciones listas: `estado`, `sube`, `limpia` (peligrosa), `prueba`,
+`pendientes` y `respaldo`.
+
+```bash
+micli acciones                          # lista con descripción y ejemplos
+micli ejecutar pendientes               # TODO/FIXME del código
+micli ejecutar prueba + estado          # encadena acciones con + (para si una falla)
+micli ejecutar --dry-run limpia         # simula antes de ejecutar
+micli ejecutar limpia                   # pide confirmación (acción "peligrosa")
+micli ejecutar --yes limpia             # salta la confirmación
+```
+
+Reglas anti-sorpresa: `--dry-run` muestra el comando exacto (y avisa si la
+acción es peligrosa) sin ejecutarlo; las acciones con `"peligrosa": true`
+piden confirmación explícita antes de ejecutarse; al encadenar con `+` la
+ejecución se detiene si una acción falla.
 
 ## Tests
 

@@ -127,10 +127,14 @@ def build_parser():
     acciones_p = sub.add_parser("acciones", help="Lista las acciones disponibles")
     acciones_p.set_defaults(func=cmd_acciones)
 
-    ejecutar = sub.add_parser("ejecutar", help="Ejecuta una acción de acciones.json")
+    ejecutar = sub.add_parser("ejecutar", help="Ejecuta una o varias acciones (separadas por +)")
     ejecutar.add_argument(
         "-n", "--dry-run", action="store_true",
         help="Muestra el comando sin ejecutarlo",
+    )
+    ejecutar.add_argument(
+        "-y", "--yes", action="store_true",
+        help="No pedir confirmación en acciones peligrosas",
     )
     ejecutar.add_argument("accion", help="Nombre de la acción")
     ejecutar.add_argument(
@@ -392,7 +396,8 @@ def cmd_acciones(args):
         _print("No hay acciones definidas.", Fore.CYAN, args)
         return 0
     for nombre, acc in definidas.items():
-        _print(f"{nombre}: {acc.get('descripcion', '')}", Fore.CYAN, args)
+        aviso = " (peligrosa)" if acc.get("peligrosa") else ""
+        _print(f"{nombre}: {acc.get('descripcion', '')}{aviso}", Fore.CYAN, args)
         if acc.get("ayuda"):
             _print(f"  {acc['ayuda']}", Fore.YELLOW, args)
         for ejemplo in acc.get("ejemplos", []):
@@ -403,37 +408,50 @@ def cmd_acciones(args):
 def cmd_ejecutar(args):
     try:
         definidas = acciones.cargar_acciones()
-    except acciones.AccionError as e:
-        _print(f"Error: {e}", Fore.RED, args)
-        return 1
-    accion = definidas.get(args.accion)
-    if accion is None:
-        _print(f"Error: la acción {args.accion!r} no existe.", Fore.RED, args)
-        return 1
-    try:
-        comando = acciones.construir(accion["comando"], args.argumentos)
+        segmentos = acciones.segmentar(args.accion, args.argumentos)
     except acciones.AccionError as e:
         _print(f"Error: {e}", Fore.RED, args)
         return 1
 
-    if args.dry_run:
-        _print(comando, Fore.MAGENTA, args)
-        return 0
+    for seg in segmentos:
+        nombre, args_ = seg[0], seg[1:]
+        accion = definidas.get(nombre)
+        if accion is None:
+            _print(f"Error: la acción {nombre!r} no existe.", Fore.RED, args)
+            return 1
+        try:
+            comando = acciones.construir(accion["comando"], args_)
+        except acciones.AccionError as e:
+            _print(f"Error: {e}", Fore.RED, args)
+            return 1
 
-    _print(f"$ {comando}", Fore.CYAN, args)
-    out.flush()
-    resultado = subprocess.run(
-        comando, shell=True, text=True,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-    )
-    if resultado.stdout:
-        print(resultado.stdout, end="", file=out)
-    if resultado.returncode != 0:
-        _print(
-            f"La acción terminó con código {resultado.returncode}.",
-            Fore.RED, args,
+        if args.dry_run:
+            _print(comando, Fore.MAGENTA, args)
+            if acciones.es_peligrosa(accion):
+                _print("  (acción peligrosa: borrará/sobrescribirá)",
+                       Fore.YELLOW, args)
+            continue
+
+        if acciones.es_peligrosa(accion) and not args.yes:
+            if not acciones.confirmar(nombre, accion, entrada):
+                _print(f"Cancelada: {nombre}.", Fore.YELLOW, args)
+                return 0
+
+        _print(f"$ {comando}", Fore.CYAN, args)
+        out.flush()
+        resultado = subprocess.run(
+            comando, shell=True, text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         )
-    return resultado.returncode
+        if resultado.stdout:
+            print(resultado.stdout, end="", file=out)
+        if resultado.returncode != 0:
+            _print(
+                f"La acción terminó con código {resultado.returncode}.",
+                Fore.RED, args,
+            )
+            return resultado.returncode
+    return 0
 
 
 def cmd_ia(args):

@@ -46,6 +46,11 @@ class TestCli(unittest.TestCase):
                             "ejemplos": ["micli ejecutar nombrado --nombre=Ana"],
                         },
                         "falla": {"descripcion": "Falla", "comando": "exit 3"},
+                        "borra": {
+                            "descripcion": "Borra cosas",
+                            "comando": "echo borrando",
+                            "peligrosa": True,
+                        },
                     }
                 },
                 f,
@@ -476,6 +481,57 @@ class TestCli(unittest.TestCase):
         code, out = self.run_cli(["ejecutar", "eco"])
         self.assertEqual(code, 1)
         self.assertIn("Faltan parámetros", out)
+
+    def test_ejecutar_encadenado(self):
+        code, out = self.run_cli(
+            ["ejecutar", "eco", "a", "+", "nombrado", "--nombre=Ana"]
+        )
+        self.assertEqual(code, 0)
+        self.assertIn("hola a", out)
+        self.assertIn("Ana", out)
+
+    def test_ejecutar_encadenado_para_al_fallar(self):
+        code, out = self.run_cli(["ejecutar", "falla", "+", "eco", "x"])
+        self.assertEqual(code, 3)
+        self.assertNotIn("hola x", out)
+
+    def test_ejecutar_encadenado_invalido(self):
+        code, out = self.run_cli(["ejecutar", "+", "eco", "x"])
+        self.assertEqual(code, 1)
+        self.assertIn("Encadenado inválido", out)
+
+    def test_ejecutar_peligrosa_confirma_y_ejecuta(self):
+        prompts = []
+        antiguo = cli.entrada
+        cli.entrada = lambda p="": prompts.append(p) or "si"
+        try:
+            with capture_out() as buf:
+                code = main(["--no-color", "ejecutar", "borra"])
+        finally:
+            cli.entrada = antiguo
+        out = buf.getvalue()
+        self.assertEqual(code, 0)
+        self.assertIn("peligrosa", "".join(prompts))
+        self.assertIn("borrando", out)
+
+    def test_ejecutar_peligrosa_cancela(self):
+        code, out = self.run_cli_entrada(["ejecutar", "borra"], ["no"])
+        self.assertEqual(code, 0)
+        self.assertIn("Cancelada", out)
+        self.assertNotIn("borrando", out)
+
+    def test_ejecutar_peligrosa_yes_sin_preguntar(self):
+        code, out = self.run_cli(["ejecutar", "--yes", "borra"])
+        self.assertEqual(code, 0)
+        self.assertNotIn("¿Ejecutarla?", out)
+        self.assertIn("borrando", out)
+
+    def test_ejecutar_dry_run_peligrosa_avisa_sin_ejecutar(self):
+        code, out = self.run_cli(["ejecutar", "--dry-run", "borra"])
+        self.assertEqual(code, 0)
+        self.assertIn("echo borrando", out)
+        self.assertIn("(acción peligrosa", out)
+        self.assertNotIn("$ echo borrando", out)
 
     def test_ejecutar_codigo_de_salida(self):
         code, out = self.run_cli(["ejecutar", "falla"])

@@ -12,7 +12,24 @@
     },
     "limpia": {
       "descripcion": "Borra __pycache__, .pyc y artefactos de build",
-      "comando": "find . -type d -name __pycache__ -exec rm -rf {} + && rm -rf .pytest_cache build dist *.egg-info"
+      "comando": "find . -type d -name __pycache__ -exec rm -rf {} + && rm -rf .pytest_cache build dist *.egg-info",
+      "peligrosa": true
+    },
+    "prueba": {
+      "descripcion": "Ejecuta los tests unittest del proyecto",
+      "comando": "python3 -m unittest discover -s tests",
+      "ayuda": "micli ejecutar prueba",
+      "ejemplos": ["micli ejecutar prueba"]
+    },
+    "pendientes": {
+      "descripcion": "Busca TODO y FIXME en el código",
+      "comando": "grep -rnE \"TODO|FIXME\" micli tests || true",
+      "ayuda": "micli ejecutar pendientes"
+    },
+    "respaldo": {
+      "descripcion": "Copia de seguridad de ~/.config/micli a respaldos/",
+      "comando": "mkdir -p respaldos && tar czf respaldos/micli-config-$(date +%Y%m%d-%H%M).tgz -C ~/.config micli && ls -1t respaldos | head -1",
+      "ayuda": "micli ejecutar respaldo"
     }
   }
 }
